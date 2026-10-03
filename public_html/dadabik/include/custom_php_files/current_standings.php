@@ -150,6 +150,17 @@ if ($_cp_league === 'NCAA5') {
     echo "<p><img src='" . htmlspecialchars($_cp_league_logo2_url) . "' alt='NCAA5 logo' style='width:180px;height:90px;object-fit:contain;object-position:left center'></p>";
 }
 
+// H40 (3 Oct 2026): the Team and Coach columns are sized from the longest name in THIS
+// league's rows, so every division table on the page comes out the same width without
+// fixing a percentage. Measured in characters (mb_strlen), turned into ch units in
+// standings_table_header().
+$_cp_team_chars  = 4;   // "Team", the header, as the floor
+$_cp_coach_chars = 5;   // "Coach"
+foreach ($_cp_rows as $_cp_r) {
+    $_cp_team_chars  = max($_cp_team_chars,  mb_strlen((string)$_cp_r['franchise_label']));
+    $_cp_coach_chars = max($_cp_coach_chars, mb_strlen((string)($_cp_r['coach_name'] ?? '-')));
+}
+
 if (empty($_cp_rows)) {
     echo "<p><em>No standings data available yet for $_cp_league.</em></p>";
 } else {
@@ -159,11 +170,11 @@ if (empty($_cp_rows)) {
 
     if (!$_cp_has_divisions) {
         // College-style: one flat table, no division grouping at all.
-        echo standings_table_header();
+        echo standings_table_header($_cp_team_chars, $_cp_coach_chars);
         foreach ($_cp_rows as $row) {
             echo standings_table_row($row, $_cp_coach_id_by_franchise);
         }
-        echo "</table>";
+        echo standings_table_footer();
     } else {
         // Pro-style: a new table every time the division changes, each preceded by its own
         // division heading (logo + name) and an "all-time division leaders" callout.
@@ -184,7 +195,7 @@ if (empty($_cp_rows)) {
             // explaining why the logo appeared to "jump" to an unexpected spot.
             if ($row['division'] !== $_cp_current_division) {
                 if ($_cp_current_division !== null) {
-                    echo "</table>";
+                    echo standings_table_footer();
                 }
                 if ($row['conference'] !== $_cp_current_conference) {
                     $_cp_current_conference = $row['conference'];
@@ -194,11 +205,11 @@ if (empty($_cp_rows)) {
                 echo division_heading($_cp_current_division, $images_url);
                 echo division_current_streak($conn, $_cp_league, $_cp_current_division);
                 echo division_leaders_callout($conn, $_cp_league, $_cp_current_division);
-                echo standings_table_header();
+                echo standings_table_header($_cp_team_chars, $_cp_coach_chars);
             }
             echo standings_table_row($row, $_cp_coach_id_by_franchise);
         }
-        echo "</table>";
+        echo standings_table_footer();
     }
 }
 echo "</div>";
@@ -239,23 +250,37 @@ function division_heading($division, $images_url) {
          . "</div>";
 }
 
-function standings_table_header() {
-    // table-layout:fixed + an explicit <colgroup> rather than leaving column widths to
-    // stretch evenly (w3.css's default) -- that's what put "For"/"Against"/"Diff" so far
-    // apart: six columns splitting a wide table equally gives short numeric values the same
-    // width as "New England Patriots". Team gets the lion's share of the space; the four
-    // numeric columns stay narrow and close together. Also narrower overall (35% vs the
-    // previous 60%) and tighter cell padding for a more compact look throughout.
-    $out = "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' "
-         . "style='width:45%;min-width:520px;table-layout:fixed;border-collapse:collapse;margin-bottom:24px'>";
+function standings_table_header($team_chars, $coach_chars) {
+    // H40 (3 Oct 2026). Until then: width:45%; min-width:520px; table-layout:fixed and a
+    // <colgroup> of 32/22/14/8/8/8/8 %. Fixed layout imposed those shares whatever the text,
+    // so on a 1,575 px window every table was about 556 px: Team and Coach names wrapped
+    // ("Georgia Tech Yellow Jackets", "Dominic Williams"), "Against" ran into "Diff" and
+    // "Streak" spilled past the table's edge, with about 700 px of the panel empty beside it
+    // (Alan's screenshots, 3 Oct 2026 session3).
+    // Now: the table is as wide as its content (width:auto overrides w3-table's 100%), and
+    // white-space:nowrap (inherited by every cell) keeps names and headers on one line.
+    // Team and Coach get a minimum width from the longest name in the league, in ch, so
+    // every division table on the page lines up; the numeric columns size to their own
+    // content, so they stay narrow and together, which is what the old <colgroup> was for.
+    // Record and the four numeric columns get floors a little wider than their widest
+    // value or bold header ("11 - 4 (1t)", "Against", "Streak"), so a tie or a long
+    // streak in one division does not make that table wider than the rest (without the
+    // floors, a fixture render had one table 9 px narrower). Each cell's width includes its 16 px of padding
+    // (w3.css sets border-box). The wrapper scrolls sideways on a narrow window rather than
+    // squashing the table.
+    $team_w  = "calc(" . (int)$team_chars . "ch + 16px)";
+    $coach_w = "calc(" . (int)$coach_chars . "ch + 16px)";
+    $out = "<div style='overflow-x:auto;margin-bottom:24px'>"
+         . "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' "
+         . "style='width:auto;table-layout:auto;white-space:nowrap;border-collapse:collapse'>";
     $out .= "<colgroup>"
-          . "<col style='width:32%'>"
-          . "<col style='width:22%'>"
-          . "<col style='width:14%'>"
-          . "<col style='width:8%'>"
-          . "<col style='width:8%'>"
-          . "<col style='width:8%'>"
-          . "<col style='width:8%'>"
+          . "<col style='width:$team_w'>"
+          . "<col style='width:$coach_w'>"
+          . "<col style='width:calc(11ch + 16px)'>"
+          . "<col style='width:calc(4ch + 16px)'>"
+          . "<col style='width:calc(8ch + 16px)'>"
+          . "<col style='width:calc(5ch + 16px)'>"
+          . "<col style='width:calc(7ch + 16px)'>"
           . "</colgroup>";
     $out .= "<tr>"
           . "<th style='padding:4px 8px'>Team</th>"
@@ -267,6 +292,11 @@ function standings_table_header() {
           . "<th style='padding:4px 8px' class='w3-right-align'>Streak</th>"
           . "</tr>";
     return $out;
+}
+
+// Closes what standings_table_header() opens: the table and its scrolling wrapper (H40).
+function standings_table_footer() {
+    return "</table></div>";
 }
 
 function standings_table_row($row, $coach_id_by_franchise) {
