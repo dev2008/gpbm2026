@@ -113,7 +113,9 @@ echo "<div class='w3-panel w3-theme'><h1 class='w3-text-white' style='text-shado
 if ($_cp_is_all_bowls) {
     render_all_bowls_summary($conn, $_cp_league_id, $_cp_college_bowls);
 } else {
-    render_win_breakdown($conn, $_cp_league_id, $_cp_game_type_ids, $_cp_bowl_name);
+    // H44 (3 Oct 2026, Alan's NZ2): college franchises are schools, pro franchises are teams.
+    render_win_breakdown($conn, $_cp_league_id, $_cp_game_type_ids, $_cp_bowl_name,
+                         $_cp_league === 'NCAA5' ? 'Schools' : 'Teams');
     render_conference_division_record($conn, $_cp_league_id, $_cp_game_type_ids, $_cp_league === 'NFLAR');
 }
 
@@ -149,7 +151,7 @@ function perspectives_sql($game_type_ids) {
 }
 
 // Multi-time winners / single-time winners / appeared-but-never-won / never-appeared-at-all.
-function render_win_breakdown($conn, $league_id, $game_type_ids, $bowl_name) {
+function render_win_breakdown($conn, $league_id, $game_type_ids, $bowl_name, $noun) {
     $persp = perspectives_sql($game_type_ids);
 
     $sql = "SELECT f.franchise_id, f.label, COUNT(*) AS wins
@@ -203,11 +205,12 @@ function render_win_breakdown($conn, $league_id, $game_type_ids, $bowl_name) {
     }
 
     $bn = htmlspecialchars($bowl_name);
+    $nn = htmlspecialchars($noun);
     echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:70%;min-width:520px'>";
-    echo "<tr><th>Schools with multiple $bn wins (" . count($multi) . "):</th><td>" . implode(', ', $multi) . "</td></tr>";
-    echo "<tr><th>Schools with one $bn win (" . count($single) . "):</th><td>" . implode(', ', $single) . "</td></tr>";
-    echo "<tr><th>Schools that appeared but never won (" . count($never_won) . "):</th><td>" . implode(', ', $never_won) . "</td></tr>";
-    echo "<tr><th>Schools that never appeared (" . count($never_appeared) . "):</th><td>" . implode(', ', $never_appeared) . "</td></tr>";
+    echo "<tr><th>$nn with multiple $bn wins (" . count($multi) . "):</th><td>" . implode(', ', $multi) . "</td></tr>";
+    echo "<tr><th>$nn with one $bn win (" . count($single) . "):</th><td>" . implode(', ', $single) . "</td></tr>";
+    echo "<tr><th>$nn that appeared but never won (" . count($never_won) . "):</th><td>" . implode(', ', $never_won) . "</td></tr>";
+    echo "<tr><th>$nn that never appeared (" . count($never_appeared) . "):</th><td>" . implode(', ', $never_appeared) . "</td></tr>";
     echo "</table><br>";
 }
 
