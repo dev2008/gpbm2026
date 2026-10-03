@@ -1,13 +1,16 @@
 <?php
-// config_custom.php.server -- rev 001 -- 18 Aug 2026 -- role: config -- authority: derived
+// config_custom.php.server -- rev 002 -- 3 Oct 2026 -- role: config -- authority: derived
+// rev 002 (A9, 3 Oct 2026): database host and name for gpbm.uk; credentials and secret key read from
+//   ~/.env through tools/env_loader.php as .local does (H41); $files_url and $images_url set (Q4 of
+//   SESSION_20261003_5). Ready to use.
+// rev 001 (H26, 18 Aug 2026): first issue, database block blank.
 //
 // PRODUCTION config overrides for gpbm.uk. Activated by pointing the symlink at it:
 //     ln -sfn /path/to/include/config_custom.php.server /path/to/include/config_custom.php
 // Built from config_custom.php.local (MountZion dev) during task H26, 18 Aug 2026.
 // Every value below is the dev value EXCEPT where marked [A9 TODO] or noted otherwise.
 //
-// STATUS: NOT READY TO USE. The database block is deliberately blank -- A9 fills it from
-// the host's own credentials. The app will not start until it is completed.
+// STATUS: READY (rev 002). It refuses with a logged 500 if ~/.env lacks any of its three keys.
 //
 // ⚠ THE DIVERGENCE LIST IS CLOSED. Exactly four things may differ from
 // config_custom.php.local, and every one of them has a reason:
@@ -15,6 +18,7 @@
 //     2. $secret_key                        -- must never be shared between environments
 //     3. $files_url / $images_url           -- host-specific by nature
 //     4. $debug_mode                        -- 1 on dev, 0 in production (H26, measured)
+//     5. $dadabik_session_name              -- added 3 Oct 2026 (H41): the hosts SHOULD differ (Alan)
 // ANY other difference between these two files is a defect, not a configuration choice:
 // it means dev and production are different applications and testing on one says nothing
 // about the other. h26-config-drift-check.sh proves it in one command -- run it before
@@ -24,15 +28,22 @@
 // alandev:www-data mode 640; on the host it will differ, and a file the server cannot
 // read fails with "Permission denied", which reads like a config error and is not one.
 
-/* ===== Database -- [A9 TODO] fill from the host, do not copy MountZion's ============ */
-$host        = '';
-$db_name     = '';
-$user        = '';
-$pass        = '';
-
-/* ===== Secret key -- [A9 TODO] ===================================================== */
-/* MUST be a new long random string, NOT the dev one. */
-$secret_key  = '';
+/* ===== Database -- gpbm.uk (A9, 3 Oct 2026) ========================================== */
+$host    = 'shareddb-u.hosting.stackcp.net';   // ✓ measured on 20i, 3 Oct 2026 (SESSION_20261003_5 §5)
+$db_name = 'gpbmuk-313333c5cd';
+/* Credentials and the secret key come from ~/.env on gpbm.uk, read through ~/tools/env_loader.php,
+   exactly as config_custom.php.local reads /var/www/gpbm/.env on dev (H41, Civ decision 102). Never a
+   literal here, and no fallback: a missing value fails loudly. ~/.env is 600: on 20i PHP-FPM runs as
+   the account's own uid (✓ measured 3 Oct 2026), so 600 is readable by the site. */
+require_once dirname(__DIR__, 3) . '/tools/env_loader.php';
+$user       = Env::get('GPBM_DB_USER');
+$pass       = Env::get('GPBM_DB_PASS');
+$secret_key = Env::get('GPBM_SECRET_KEY');
+if ($user === null || $pass === null || $secret_key === null) {
+    error_log('dadabik/include/config_custom.php: GPBM_DB_USER, GPBM_DB_PASS or GPBM_SECRET_KEY missing from .env (H41)');
+    http_response_code(500);
+    exit('Configuration error');
+}
 
 /* ===== Session / internal tables =================================================== */
 /* $prefix_internal_table MUST be IDENTICAL to the value in config_custom.php.local. It names
@@ -51,8 +62,8 @@ $default_install_enable_tables_on_creation = 'no';
 $dbms_type   = 'mysql';
 $timezone    = 'Europe/London';
 $languages_ar = array ('english');
-$files_url   = '';   // [A9 TODO] e.g. https://files.gpbm.uk/
-$images_url  = '';   // [A9 TODO] e.g. https://images.gpbm.uk/
+$files_url   = 'https://files.gpbm.uk/';    // Q4 of SESSION_20261003_5, Alan 3 Oct 2026
+$images_url  = 'https://images.gpbm.uk/';   // Q4 of SESSION_20261003_5, Alan 3 Oct 2026
 
 /* ===== Licence ===================================================================== */
 $serial_number = '0DR6URUU';   // 13.5-Levanto Platinum. Alan, 18-Aug-2026: one code covers up
