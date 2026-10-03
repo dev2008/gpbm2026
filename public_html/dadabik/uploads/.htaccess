@@ -1,0 +1,27 @@
+# dadabik/uploads/.htaccess · Gameplan PBM · rev 002 · 15 Aug 2026
+#
+# Denies all web access to uploaded turn files. Directory-level, so filenames
+# being guessable does not matter.
+#
+# rev 001 was the single line `Deny from all` (13 bytes, no trailing newline),
+# hand-written 7 Jul 2026. That is Apache 2.2 syntax and works on MountZion
+# only because mod_access_compat happens to be loaded there. On an Apache 2.4
+# host without that module it is an unrecognised directive and Apache returns
+# 500 for every request in this directory -- fail-closed, but broken rather
+# than protected, and a far worse signal to debug than a 403.
+#
+# NOT shipped by DaDaBIK. Hand-made: owner alandev, not www-data, unlike every
+# file DaDaBIK writes here. Nothing recreates it on a fresh install. It must be
+# placed on the target deliberately and its presence verified there -- task A9.
+# Under SFTP it will not travel by default; most GUI clients hide dotfiles.
+#
+# Do NOT add php_value or php_flag here. PHP runs as fpm-fcgi on both boxes,
+# so those mod_php directives 500 the whole directory. Use .user.ini instead.
+
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

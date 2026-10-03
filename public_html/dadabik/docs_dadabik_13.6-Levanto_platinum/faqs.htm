@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta  content="text/html; charset=utf-8"  http-equiv="content-type">
+    <title>DaDaBIK (DaDaBIK is a DataBase Interfaces Kreator)
+      http://www.dadabik.org/ - Documentation</title>
+    <style>
+body
+{
+margin-right:10%;
+margin-left:10%;
+}
+
+body, p, h1, h2
+{
+line-height:120%
+}
+
+li{
+margin-top:10px;
+}
+</style>
+  </head>
+  <body>
+    <h1>DaDaBIK FAQs</h1>
+    <h2>LICENSING AND GENERAL QUESTIONS</h2>
+<p><strong>Do I need to buy a license for each DaDaBIK application I produce?</strong><br>
+<br>
+No. One license covers multiple applications. Depending on your edition (Pro, Enterprise, or Platinum), you can create up to 5, 10, or 50 active applications.<br>You can also create unlimited test applications for experimentation, which you can later delete or convert into active ones.</p>
+
+<p><strong>I will use DaDaBIK on two different domains. Do I need a license for each domain?</strong><br>
+<br>
+No. Your license is based on the number of <storng>active</strong> applications, not the number of domains.
+<br>For example, if you create two separate DaDaBIK apps on two different domains, they count as two active applications under the same license.</p>
+
+<p><strong>Do I have to pay again when a new upgrade comes out?</strong><br>
+<br>
+You have a <strong>free upgrade</strong> period: 6, 12 or 36 months depending on the edition you purchased (Pro, Enterprise, Platinum).</p>
+
+<p><strong>What happens if there is a major upgrade, such as from DaDaBIK 12.x to DaDaBIK 13.x??</strong><br>
+<br>
+Still, if you are in your <strong>free upgrade</strong> period, you'll get it for free, and even if the price increases.</p>
+
+<p><strong>Ok, I am in my <strong>free upgrade</strong> period, how can I get my free upgrade?</strong><br>
+<br>
+Just follow the instructions in the <a href="http://www.dadabik.com/index.php?function=show_upgrade_new">upgrade page</a></p>
+
+<p><strong>I need an invoice, how can I request it?</strong><br>
+<br>
+You will automatically receive a regular invoice by email after the purchase, you don't need to request it.</p>
+
+<p><strong>During the purchase process I can specify my company's information but I don't find a way to add my VAT ID.</strong><br>
+<br>
+On the checkout popup page, click on the "Enter VAT ID" link.
+</p>
+
+<p><strong>Do you have a trial verion?</strong><br>
+<br>
+If you start a monthly subscription, the first month is free and you can cancel the subscription anytime. For lifetime licenses, we don't have a trial version, however you can test almost all the no-code features through the <a href="https://dadabik.com/index.php?function=show_company_demo">online demo</a>; you can't, however, test the low-code features (i.e. adding your own PHP and Javascript code) through the online demo.  
+<p><strong>Do you offer installation services?</strong><br>
+<br>
+You can get DaDaBIK installed and configured for free within 1 business day on an Hosting.com space. <a href="index.php?function=show_a2hosting_installation" target="_blank">Click here</a> for additional details.<br>In case you want to install DaDaBIK on a different hosting, on your own server or computer, you can install it by yourself (the installation process is straightforward) or refer to the <a href="index.php?function=show_custom_installation">Business Solution page</a> for our services.
+</p>
+
+<p><strong>Do you offer customization services? DaDaBIK is almost perfect for my needs, but it's missing a specific feature, and I’m not a software developer.</strong><br>
+<br>
+Sure, we have implemented custom features for customers many times, both for private customers and companies. Check the <a href="index.php?function=show_custom_installation">Business Solution page</a> for details.
+</p>
+
+
+<p><strong>Is DaDaBIK a cloud service?</strong><br>
+<br>
+It depends on what you mean with "cloud". You are <b>not</b> forced to host your DaDaBIK applications and data on our servers, if this is the question.<br>With DaDaBIK, you can host your app wherever you prefer, exactly as you do, for example, with WordPress or other similar applications. Any server that supports the <a href="https://dadabik.com/index.php?function=show_documentation#requirements">minimum requirements</a> is fine: from the cheap, shared, hosting solution to the most powerful dedicated server, or even your own laptop.<br>The applications you build with DaDaBIK are web applications, so you can access them from anywhere using any modern web browser, even on mobile devices. So DaDaBIK can function like a "cloud" service, but it’s entirely under your control—whether it's hosted on your own server or a trusted cloud provider.
+</p>
+
+
+<p><strong>Does DaDaBIK work on Windows/Mac/Unix/Linux/...?</strong><br>
+<br>
+Yes, DaDaBIK works with any Operating System which supports PHP, the requirements (you can find them in the <a href="https://dadabik.com/index.php?function=show_documentation#requirements">documentation</a>) are very low but if you still have doubts about your system <a href="https://dadabik.com/index.php?function=show_contacts">contact us</a> and ask!
+</p>
+
+<br/>
+<h2>TECHNICAL QUESTIONS</h2>
+
+<p><strong>I get [08] Error Message<br>
+I get "Error during query execution" </strong><br>
+<br>
+This is a generic error message that appears when a database operation fails. For security reasons, by default DaDaBIK does not provide additional details about these errors (details that can show table and field names and other information you don't want to reveal). If you want to see additional details about the errors, open the file <strong>include/config_custom.php</strong> and add a <strong>$debug_mode = 1;</strong> line. This should help you understand the source of the problem</p>
+
+<!--<p><strong>I can't see the edit/delete record icons in the results view </strong><br>
+<br>
+You did not set a primary key in the table, so you are able to see the
+records but DaDaBIK cannot edit/delete them.</p>-->
+
+<p><strong>Page not showing after Insert/Update.</strong><br>
+<br>
+Open <strong>include/config.php</strong> and <strong>include/config_custom.php</strong> and make sure the variable
+$site_url is correct (normally you should leave it empty).<br></p>
+
+<p><strong>I can't login into DaDaBIK</strong><br>
+<br>
+Before asking for support double check that the parameters $site_url and $site_path in <strong>include/config.php </strong> or <strong>include/config_custom.php</strong> are correct. 99% of the time login problems are due to mistakes in those parameters. Normally, you should <strong>leave those parameters empty</strong>.<br>If for some reason PHP sessions are not working correctly the login will also be affected; after having checked $site_url and $site_path run the script http://www.yoursite.com/dadabik_folder/check_sessions.php and reload several times the page: you should see a counter that increments by 1 every time you reload the page, otherwise sessions are not working.<br>Finally, if in your database you have a lot of tables and/or a lot of table fields, you might experience a memory shortage problem: for example if your memory limit is 128M (you can see your memory limit via phpinfo()) , you can try to increase it to 256M or 512M adding this line:<br>ini_set('memory_limit', '256M');<br> to your config_custom.php file.
+ </p>
+ 
+ 
+ 
+
+<p><strong>I get a message: "attack 02 detected"</strong><br>
+<br>
+There could be several reasons; first of all try to logout and login again: it can happen that DaDaBIK stores in your sessions an "order by" clause using a field that has been dropped or renamed.
+ </p>
+ 
+<p><strong>I get a message: "unexpected items_table_names_field:" or similar.</strong><br>
+<br>
+Check if, in form configurator, you are referring to a table (for example as an items table or as a linked table) or a field that is not available anymore (you dropped it, you uninstall it or you disable it). DaDaBIK, if $form_config_security_check = 1, checks if the tables/fields you are using in the form configurator are actually available and if they aren't, throws this kind of errors.
+</p>
+ 
+ <p><strong>I get a message: "unexpected error function get_where_value_form_preview " while using the form configurator.</strong><br>
+<br>
+There could be several reasons, first of all try to log out and login again: DaDaBIK might have in session some configuration settings that are not valid anymore. Also look at the $site_url and $site_path config parameters, they should be empty, so try with empty values first and then try to set them. If the problem persists, post all the details on the <a href="https://dadabik.com/forum/">forum</a>. You can also disable the form configurator preview by settings the config parameter $enable_form_config_live_preview = 0, this will stop the error message.
+
+</p>
+ <p><strong>I get a message: "TCPDF ERROR: [Image] Unable to get the size of the image"</strong><br><br>
+ Please check <a href="https://dadabik.com/forum/read.php?1,22393,22427">this forum post</a> 
+ 
+ <p><strong> I get a message: "You don't have or have lost your lock on this item"</strong><br><br>
+ DaDaBIK implements an edit locking mechanism: when you are editing a record, other users cannot edit the same record (at least through the DaDaBIK app you have created); after a while, you can loose the lock and if you try to save, you get this error. Check the config parameter $seconds_after_automatic_unlock for additional details.<br>
+ If you are loosing the lock immediately, perhaps you are experience the <i>favicon bug</i>: with some browser/server combinations, we have seen that if your site doesn't have a favicon.ico, the browser, while trying to request it, makes an HTTP call that releases the lock. You can fix this by adding a favicon.ico
+ 
+ 
+ 
+  </body>
+</html>
+

@@ -1,0 +1,23 @@
+# dadabik/include/custom_php_files/.htaccess · Gameplan PBM · rev 001 · 15 Aug 2026
+#
+# Denies all web access to this directory. Nothing here is ever fetched over
+# HTTP -- DaDaBIK includes these files from the filesystem. Verified 14 Aug
+# 2026: the directory contains PHP files only, no assets.
+#
+# Task A2 §6 specified `Options -Indexes` (cosmetic: match production, which
+# already returns 403). Widened to a full deny by decision, 14 Aug 2026: the
+# custom_page_from_inclusion guard becomes a genuine second layer rather than
+# the only one, and a page that forgets the guard is still not reachable.
+#
+# Consequence, accepted: whoami.php's standalone mode is unreachable on this
+# box. That mode exists for probing a host before DaDaBIK is installed.
+#
+# Do NOT add php_value or php_flag here -- fpm-fcgi, 500s the directory.
+
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

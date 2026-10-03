@@ -1,0 +1,80 @@
+=== A2-4 · rev 001 · 14 Aug 2026 ===
+run_at : 2026-08-15 21:40:47
+host   : MountZion
+base   : http://gpbm.local/dadabik/uploads
+source : /var/www/gpbm/public_html/dadabik/uploads
+
+=== D.0  environment — what is actually serving this ===
+HTTP/1.1 200 OK
+Server: Apache/2.4.58 (Ubuntu)
+  mod_access_compat: 1 (0 = not loaded; the old 'Deny from all' would have 500'd here)
+  mod_authz_core   : 1 (1 = the branch actually in force)
+
+=== D.1  the .htaccess now in place ===
+-rw-r--r-- 1 alandev www-data 1254 Aug 15 21:37 /var/www/gpbm/public_html/dadabik/uploads/.htaccess
+
+=== D.2  every file in the directory, requested by exact URL ===
+  403  PASS   dadabik_tmp_file_Game Report from Ab Initio Games NFLAR-MV, Turn 15_148.txt
+  403  PASS   Game Report from Ab Initio Games NFLAR-MV, Turn 0_116.txt
+  403  PASS   Game Report from Ab Initio Games NFLAR-MV, Turn 10_138.txt
+  403  PASS   Game Report from Ab Initio Games NFLAR-MV, Turn 11_140.txt
+  403  PASS   Game Report from Ab Initio Games NFLAR-MV, Turn 1_118.txt
+  403  PASS   Game Report from Ab Initio Games NFLAR-MV, Turn 12_142.txt
+  403  PASS   Game Report from Ab Initio Games NFLAR-MV, Turn 13_144.txt
+  403  PASS   Game Report from Ab Initio Games NFLAR-MV, Turn 14_146.txt
+  403  PASS   Game Report from Ab Initio Games NFLAR-MV, Turn 15_152.txt
+  403  PASS   Game Report from Ab Initio Games NFLAR-MV, Turn 2_120.txt
+  403  PASS   Game Report from Ab Initio Games NFLAR-MV, Turn 3_122.txt
+  403  PASS   Game Report from Ab Initio Games NFLAR-MV, Turn 4_124.txt
+  403  PASS   Game Report from Ab Initio Games NFLAR-MV, Turn 5_126.txt
+  403  PASS   Game Report from Ab Initio Games NFLAR-MV, Turn 6_128.txt
+  403  PASS   Game Report from Ab Initio Games NFLAR-MV, Turn 7_150.txt
+  403  PASS   Game Report from Ab Initio Games NFLAR-MV, Turn 8_130.txt
+  403  PASS   Game Report from Ab Initio Games NFLAR-MV, Turn 9_132.txt
+  403  PASS   Game Report from Ab Initio Games NFLAR-MV, Turn 9_134.txt
+  403  PASS   .htaccess
+  403  PASS   NCAA5-PI,s2038, Turn 12 vs Army_31.txt
+  403  PASS   NCAA5-PI,s2038, Turn 12 vs Army_34.txt
+  403  PASS   NCAA5-PI,s2038, Turn 13 vs GTech_36.txt
+  403  PASS   NCAA5-PI-s2039-w00_vs_AirForce _38.txt
+  403  PASS   NCAA5-PI-s2039-w01_vs_NewMexico_40.txt
+  403  PASS   NCAA5-PI-s2039-w01_vs_NewMexico_51.txt
+  403  PASS   NCAA5-PI-s2039-w02_vs_AirForce _42.txt
+  403  PASS   NCAA5-PI-s2039-w02_vs_AirForce _53.txt
+  403  PASS   NCAA5-PI-s2039-w03_vs_GeorgiaTech_44.txt
+  403  PASS   NCAA5-PI-s2039-w03_vs_GeorgiaTech_55.txt
+  403  PASS   NFLAR-PE, s2034, Turn 00_75.txt
+  403  PASS   NFLAR-PE, s2034, Turn 01_77.txt
+  403  PASS   NFLAR-PE, s2034, Turn 02_79.txt
+  403  PASS   NFLAR-PE, s2034, Turn 03_83.txt
+  403  PASS   NFLAR-PE, s2034, Turn 04_81.txt
+  403  PASS   NFLAR-PE, s2034, Turn 05_85.txt
+  403  PASS   NFLAR-PE, s2034, Turn 06_87.txt
+  403  PASS   NFLAR-PE, s2034, Turn 07_89.txt
+  403  PASS   NFLAR-PE, s2034, Turn 08_91.txt
+  403  PASS   NFLAR-PE, s2034, Turn 09_93.txt
+  403  PASS   NFLAR-PE, s2034, Turn 10_95.txt
+  403  PASS   NFLAR-PE, s2034, Turn 11_97.txt
+  403  PASS   NFLAR-PE, s2034, Turn 11_99.txt
+  403  PASS   NFLAR-PE, s2034, Turn 12_101.txt
+  403  PASS   NFLAR-PE, s2034, Turn 13_103.txt
+  403  PASS   NFLAR-PE, s2034, Turn 13_112.txt
+  403  PASS   NFLAR-PE, s2034, Turn 14_106.txt
+  403  PASS   NFLAR-PE, s2034, Turn 15_108.txt
+  403  PASS   NFLAR-PE, s2034, Turn 15_58.txt
+  403  PASS   NFLAR-PE, s2034, Turn 16_110.txt
+  403  PASS   NFLAR-PE, s2034, Turn 16_60.txt
+  403  PASS   NFLAR-PE, s2034, Turn 16_68.txt
+  403  PASS   NFLAR-PE, s2034, Turn 16_73.txt
+
+  files tested: 52   passed: 52   failed: 0
+
+=== D.3  the directory itself ===
+  403  PASS   directory listing
+
+=== D.4  a filename that does NOT exist ===
+  403  PASS   nonexistent file
+
+=== D.5  verdict ===
+  PASS — all 52 files denied, directory denied, absent file denied
+=== A2-4 complete ===

@@ -1,0 +1,66 @@
+*DS_Store*
+loader-wizard.php
+.env
+.env.*.secret
+*.mp4
+*.mov
+*.wmv
+sql/*
+*.sql
+*.log
+
+
+# --- Task A2, 15 Aug 2026 -------------------------------------------------
+# DaDaBIK upload temp artefacts. One was tracked in git as of 15 Aug 2026 and
+# has been git rm --cached'd; this stops the next one being added.
+dadabik_tmp_file_*
+
+# Diagnostic probe kit. info.php leaks the environment; db.php has held live
+# credentials. Removed from disk 13 Aug 2026 and never committed (verified
+# 15 Aug 2026: git log --all over the path returned nothing, so no credentials
+# in history). This entry stops it returning.
+
+probe/
+
+# --------------------------------------------------------------------------
+
+# --- DaDaBIK 13.6 upgrade, 27 Aug 2026 -------------------------------------
+# sql_manual/*.sql.gz backups were committed in the upgrade commit -- sql/*
+# and *.sql don't match this directory name or the .gz extension. Removed
+# from tracking (git rm --cached) and stopped from recurring here.
+
+sql_manual/
+*.sql.gz
+
+# --------------------------------------------------------------------------
+
+# --- Item H41, 3 Oct 2026: secrets, data and noise - never committed ------
+# Adopted from Civ's .gitignore (decision 102) for the new repository gpbm2026
+# (Alan, Q8 and Q9 of 3 Oct 2026). An ignore rule has no effect on a file
+# already tracked: this block was in place before the first commit.
+#
+# The .env above the document root holds the credentials
+# (tools/env_loader.php reads it); .env.example lists its keys, no values.
+.env
+.env.*
+!.env.example
+creds/
+# The per-host DaDaBIK configs that carry credentials. .local reads .env since
+# H41; the .example is the tracked template. .server is credential-free.
+public_html/dadabik/include/config_custom.php.local
+# Database artefacts: some hold user data and password hashes.
+sql_manual/
+setup/*.sql
+*.sql
+*.sql.*
+# Uploaded turn files are data (the database holds what was parsed), not source;
+# error_logs/ is runtime output. Each keeps its deny .htaccess under git.
+public_html/dadabik/uploads/*
+!public_html/dadabik/uploads/.htaccess
+public_html/dadabik/error_logs/*
+!public_html/dadabik/error_logs/.htaccess
+# Editor and tooling backups, and Claude's delivery folder.
+*.bak-*
+*.pre-*
+Claude outputs/
+# --------------------------------------------------------------------------

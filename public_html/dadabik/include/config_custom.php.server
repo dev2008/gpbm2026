@@ -1,0 +1,171 @@
+<?php
+// config_custom.php.server -- rev 001 -- 18 Aug 2026 -- role: config -- authority: derived
+//
+// PRODUCTION config overrides for gpbm.uk. Activated by pointing the symlink at it:
+//     ln -sfn /path/to/include/config_custom.php.server /path/to/include/config_custom.php
+// Built from config_custom.php.local (MountZion dev) during task H26, 18 Aug 2026.
+// Every value below is the dev value EXCEPT where marked [A9 TODO] or noted otherwise.
+//
+// STATUS: NOT READY TO USE. The database block is deliberately blank -- A9 fills it from
+// the host's own credentials. The app will not start until it is completed.
+//
+// ⚠ THE DIVERGENCE LIST IS CLOSED. Exactly four things may differ from
+// config_custom.php.local, and every one of them has a reason:
+//     1. $host / $db_name / $user / $pass   -- host-specific by nature
+//     2. $secret_key                        -- must never be shared between environments
+//     3. $files_url / $images_url           -- host-specific by nature
+//     4. $debug_mode                        -- 1 on dev, 0 in production (H26, measured)
+// ANY other difference between these two files is a defect, not a configuration choice:
+// it means dev and production are different applications and testing on one says nothing
+// about the other. h26-config-drift-check.sh proves it in one command -- run it before
+// every deployment, not just the first.
+//
+// ⚠ Ownership: the file must be readable by the web server user. On MountZion that is
+// alandev:www-data mode 640; on the host it will differ, and a file the server cannot
+// read fails with "Permission denied", which reads like a config error and is not one.
+
+/* ===== Database -- [A9 TODO] fill from the host, do not copy MountZion's ============ */
+$host        = '';
+$db_name     = '';
+$user        = '';
+$pass        = '';
+
+/* ===== Secret key -- [A9 TODO] ===================================================== */
+/* MUST be a new long random string, NOT the dev one. */
+$secret_key  = '';
+
+/* ===== Session / internal tables =================================================== */
+/* $prefix_internal_table MUST be IDENTICAL to the value in config_custom.php.local. It names
+   the tables the application reads; if dev and production disagree on it, the two installs are
+   no longer the same application and there is no deployment pipeline, only two systems that
+   look alike. Same for $dadabik_session_name: it needs to be unique per application, not per
+   environment, and varying it per host is divergence without a reason. */
+$dadabik_session_name  = 'gpbmsessionA1';
+$prefix_internal_table = 'zpbm_';
+
+/* ===== Install ===================================================================== */
+$default_install_enable_tables_on_creation = 'no';
+
+/* ===== Environment · locale · URLs ================================================= */
+/* [A9] Every value in this block differs on gpbm.uk. */
+$dbms_type   = 'mysql';
+$timezone    = 'Europe/London';
+$languages_ar = array ('english');
+$files_url   = '';   // [A9 TODO] e.g. https://files.gpbm.uk/
+$images_url  = '';   // [A9 TODO] e.g. https://images.gpbm.uk/
+
+/* ===== Licence ===================================================================== */
+$serial_number = '0DR6URUU';   // 13.5-Levanto Platinum. Alan, 18-Aug-2026: one code covers up
+                               // to 30 production sites, so the SAME serial is correct here and
+                               // on MountZion -- it is neither per-installation nor per-domain.
+
+/* ===== Maintenance ================================================================= */
+/* WARNING (config.php:215): when $maintenance_mode = 1, DaDaBIK AUTO-ENABLES $debug_mode
+   and $display_sql. Verified 18-Aug-2026 (H26): non-admins are blocked from the app during
+   maintenance and see only the message below, so the auto-enabled debug output has no
+   audience -- but an admin browsing during maintenance sees full SQL banners. */
+$maintenance_mode    = 0;
+$maintenance_message = '<h1>Sorry we are currently undergoing some maintenance, please check back later!</h1>';
+
+/* ===== Debug ======================================================================= */
+/* ****************************************************************************
+   $debug_mode IS THE PRODUCTION-CRITICAL SETTING IN THIS FILE. It is NOT part
+   of the error block below -- in config.php it lives 660 lines away (line 928,
+   "debug parameters") and silently overrides it.
+
+     config.php:265 -- "if $debug_mode is set to 1, all the error details will be
+     displayed instead and this parameter [$error_show_generic_message] has no effect"
+
+   MEASURED 18-Aug-2026 (H26), by provoking an error as each group in turn:
+   with $debug_mode = 1, the full backtrace, file paths, last SQL query and its
+   bound parameters are shown IDENTICALLY to admin (group 1), normal (group 2)
+   and public (group 3) users. There is no role gating.
+
+   MountZion dev: 1.   gpbm.uk: 0 -- set below, and DO NOT raise it to debug a live problem
+   without taking the site into maintenance mode first.
+   **************************************************************************** */
+$debug_mode  = 0;
+$display_sql = 0;   // = DaDaBIK default; stated explicitly because $maintenance_mode flips it
+
+/* ===== Error handling ============================================================== */
+/* NOTE: everything in this block is inert while $debug_mode = 1 (see above). These are
+   the values that take effect on gpbm.uk once debug is off. */
+$error_enable_reporting     = 1;
+$error_include_sql_query    = 1;   // [A9] config.php:249 warns this can carry user-submitted
+                                   // and sensitive data. Safe in logs; set 0 if ever rendered.
+$error_show_generic_message = 1;
+$error_generic_message      = 'Sorry, something went wrong, please contact Alan.';
+$error_reporting_config     = E_ALL;
+$error_log_to_db            = 1;   // Platinum-only feature; this install IS Platinum (verified
+                                   // 18-Aug-2026 from About/upgrade), so this is active.
+$error_log_to_php_error_log = 1;   // = DaDaBIK default. Stated explicitly: this is the log that
+                                   // works regardless of edition, and independently of $debug_mode --
+                                   // verified 18-Aug-2026 (H26) on MountZion: with debug off the user saw
+                                   // only the generic message while the error still reached the log.
+                                   // MountZion destination was /var/log/apache2/gpbm-error.log -- NOT the
+                                   // php-fpm log. PHP writes to stderr; Apache's proxy_fcgi captures it
+                                   // to the vhost ErrorLog declared in sites-enabled/gpbm.conf.
+                                   // [A9] the host's destination WILL differ. Find it by provoking an
+                                   // error and grepping for it, not by reading a config value.
+
+/* ===== Logging ===================================================================== */
+/* DEPENDENCY (config.php:1377): $enable_access_logging only works if $enable_sql_logging = 1.
+   Both 0 today, so nothing is silently doing nothing -- but turning access logging on alone
+   would look like it worked. */
+$enable_sql_logging    = 0;
+$enable_access_logging = 0;
+
+/* ===== Uploads ===================================================================== */
+$enable_uploads = 1;
+
+/* ===== Custom code ================================================================= */
+/* Both required by this project: the pages in include/custom_php_files/ and the hooks in
+   include/custom_functions/operational_hooks.php. */
+$enable_custom_php_pages       = 1;
+$enable_custom_button_functions = 1;
+
+/* ===== UI (DaDaBIK 13.5) =========================================================== */
+$ui_style                                   = 'modern';
+$always_hide_show_revisions_button          = 1;
+$enable_user_entities                       = 1;
+$grant_permissions_after_table_installation = 2;
+
+/* ===== DadaBrain (disabled) ======================================================== */
+$enable_dadabrain   = 0;
+$show_dadabrain_form = 0;
+
+/* ===== Features off ================================================================ */
+$enable_data_tab_operations = 0;
+$enable_create_view         = 0;
+$enable_report_generation   = 0;
+$enable_pivot_generation    = 0;
+$export_to_pdf_feature      = 0;
+$export_to_csv_feature      = 0;
+$enable_delete_all_feature  = 0;
+
+/* ===== Formats ===================================================================== */
+$csv_separator        = ";";
+$date_format          = 'literal_english';
+$date_format_edit     = 'd-m-Y';
+$date_time_format_edit = 'd-m-Y H:i:S';
+
+/* ===== Accounts · login ============================================================ */
+$seconds_after_automatic_unlock    = 28800;   // 8h
+$number_failed_login_before_blocking = 5;
+$enable_forgotten_password         = 1;
+$enable_email_confirmation         = 1;
+$enable_users_self_registration    = 0;
+
+/* ===== Permissions ================================================================= */
+$enable_multiple_groups_permissions                      = 0;
+$grant_permissions_autoincrement_after_table_installation = 0;
+
+// group 1 - admin
+$permissions_template['table_default'][1] = '111111'; // all the table permissions set to "1", means YES
+$permissions_template['field_default'][1] = '1111111'; // all the field permissions set to "1", means YES
+// group 2 - normal
+$permissions_template['table_default'][2] = '101111'; // all the table permissions set to "1" except from the second (delete)
+$permissions_template['field_default'][2] = '1111011'; // all the field permissions set to "1" apart from quick search
+// group 3 - public
+$permissions_template['table_default'][3] = '000000';  // all the table permissions set to "0"
+$permissions_template['field_default'][3] = '0000000'; // all the field permissions set to "0"

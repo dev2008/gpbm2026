@@ -1,0 +1,39 @@
+DaDaBIK has been conceived and developed by Eugenio Tacchini.
+
+The DaDaBIK logo has been originally designed by Fausto Mazza (https://www.faustomazza.it/)
+
+Part of the front-end graphic layout is by Simone Magnaschi, who also worked on live edit and ajax upload features.
+
+Parts of the CSS are a derivate work of Foundation responsive front-end framework (https://foundation.zurb.com/)
+
+Various libraries were used to develop DaDaBIK, you can find a list on the DaDaBIK's license.
+
+The translators:
+
+Hermann-Josef Beckers (German)
+Jürgen Müller (German)
+Joel Hautois (French)
+Olivier Marcé (French)
+Florian Brodard (French)
+José Ramírez and Andres Martinez (Spanish)
+Ronny Vanblaere and Hendrik Simoens (Dutch)
+Ronny Huybrechts (former Dutch translator)
+Benjamí Villoslada (Catalan)
+Jaume Claramunt (Catalan)
+Andri Viiand (Estonian)
+Daniela Zonenschain (Portuguese)
+Tanja (Croatian)
+Attila Tóth (Hungarian)
+Dusan Bajus (Slovak)
+Milos Kesek (Swedish)
+Heikki Skyttä (Finnish)
+Tomas Macourek (Czech)
+Frede Hansen (Danish)
+Kishor Vivian (Telugu)
+Harald (Norwegian)
+Tom Passetti and Taylor You (Chinese)
+Andy Li (Traditional Chinese, zh-tw)
+Eugenio Tacchini (Italian, English)
+
+This product includes color specifications and designs developed by Cynthia Brewer (http://colorbrewer.org/)
+
