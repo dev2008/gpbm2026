@@ -687,7 +687,12 @@ do {
     }
 
     echo "<div class='w3-panel w3-pale-green w3-text-black w3-round-large'>";
-    echo "<p><strong>$_cp_resolved</strong> games written to games/team_game_stats.</p>";
+    // H48: "N of M", so a partly written week shows in the summary itself and not only in
+    // the red panels further down (2034 weeks 19 and 20 were partly written unnoticed).
+    echo "<p><strong>$_cp_resolved</strong> of " . count($_cp_games) . " games written to games/team_game_stats"
+       . ($_cp_resolved < count($_cp_games)
+            ? " -- <strong>" . (count($_cp_games) - $_cp_resolved) . " NOT written</strong>, see the red panel below."
+            : ".") . "</p>";
     echo "<p><strong>$_cp_identity_rows</strong> franchise_identities rows written/refreshed for this week "
        . "(derived_from = 'week').</p>";
     if ($_cp_fsr !== null) {
@@ -788,6 +793,43 @@ foreach ($_cp_uploads as $u) {
 }
 echo "</select>";
 echo "</form><br>";
+
+// -------------------- Re-run a turn already extracted (H48) --------------------
+// The selector above leaves out any week that already has a game, so until H48 a week that was
+// only PARTLY written (games skipped for an unmapped type or team) could never be offered again.
+// Re-running is safe by construction: games are written ON DUPLICATE KEY UPDATE game_id =
+// game_id against uk_game (week, home, away), so a game already stored is left as it is and
+// only the missing ones are added; team_game_stats refreshes on uk_team_game (game, franchise)
+// with the same values from the same League Report; franchise_identities and
+// franchise_season_records are refreshed as on any run.
+$_cp_stmt = $conn->prepare(
+    "SELECT ru.upload_id, ru.original_filename, l.code AS league_code, s.year AS season_year, w.week_number
+     FROM raw_uploads ru
+     JOIN leagues l ON l.league_id = ru.league_id
+     JOIN seasons s ON s.season_id = ru.season_id
+     JOIN weeks w ON w.week_id = ru.week_id
+     WHERE EXISTS (SELECT 1 FROM games g WHERE g.week_id = ru.week_id)
+       AND ru.parse_status <> 'duplicate'
+       AND (l.game_type = 'football' OR l.game_type IS NULL)
+     ORDER BY ru.upload_id DESC
+     LIMIT 40"
+);
+$_cp_stmt->execute();
+$_cp_done_uploads = $_cp_stmt->fetchAll(PDO::FETCH_ASSOC);
+if ($_cp_done_uploads) {
+    echo "<form method='get'>";
+    echo "<input type='hidden' name='function' value='" . htmlspecialchars($_GET['function'] ?? 'show_static_page') . "'>";
+    echo "<input type='hidden' name='id_static_page' value='" . htmlspecialchars($_GET['id_static_page'] ?? '') . "'>";
+    echo "<p><small>Re-run a turn whose week already has games (adds only games that are missing; the 40 most recent):</small></p>";
+    echo "<select name='upload_id' onchange='this.form.submit()' style='width:480px'>";
+    echo "<option value=''>-- select a turn to re-run --</option>";
+    foreach ($_cp_done_uploads as $u) {
+        echo "<option value='{$u['upload_id']}'>"
+           . htmlspecialchars("{$u['original_filename']} ({$u['league_code']} {$u['season_year']} Wk {$u['week_number']})") . "</option>";
+    }
+    echo "</select>";
+    echo "</form><br>";
+}
 
 // Emit the extraction output, which is now reporting against a database the selector
 // above has already seen the effects of.
@@ -1004,7 +1046,7 @@ function strip_t_prefix($value) {
 // league and the turn's own week_number. Confirmed mappings only -- see conversation for
 // the full derivation, including cross-checking against real historical f_games data for
 // every non-obvious case (round-suffix handling, the Championship Bowl 3rd-place-game
-// clarification, the Consolation Pre-Season distinction).
+// clarification, the Consolation Pre-Season distinction -- ✗ that one did not hold for NFLAR, H48 below).
 function resolve_game_type_id($conn, $league_code, $week_number, $header) {
     if ($header === null) {
         // Regular season: no header at all.
@@ -1014,15 +1056,17 @@ function resolve_game_type_id($conn, $league_code, $week_number, $header) {
 
     $normalized = preg_replace('/\s+/', ' ', trim($header));
 
-    // Pre-season is a special case in both leagues, but only NFLAR has a genuine second
-    // meaning to disambiguate: teams eliminated from the playoffs playing bonus games
-    // while others are still competing, still using the season that's wrapping up, not a
-    // new one -- confirmed real, not hypothetical, and confirmed NCAA5 has no equivalent
-    // (all NCAA5 teams play in weeks 12/13, first the playoffs then ranked bowls).
+    // Pre-season. In NFLAR, teams eliminated from the playoffs play "Pre-Season" games in
+    // weeks 19 and 20 while the others are still competing, in the season that is wrapping up.
+    // H48 (3 Oct 2026): those games are type "Pre Season", the SAME type as week 0's -- that is
+    // how every earlier season holds them (type 20 for 2015-2033, 76 games in week 19 and 133
+    // in week 20; type 22 before that), measured 3 Oct 2026. Until H48 this branch asked for
+    // "Consolation Pre-Season", a name game_types has never held for NFLAR, so every such game
+    // resolved to null and was skipped: 2034 weeks 19 and 20 lost 4 and 7 games.
+    // lookup_game_type() takes the lowest id of a duplicated name, which for NFLAR is 20, the
+    // id in use since 2015. ? This comment used to say NCAA5 has no equivalent; NCAA5 2038
+    // holds six type-0 Pre Season games, which H47 is to explain.
     if (preg_match('/^Pre[\s-]Season$/i', $normalized)) {
-        if ($league_code === 'NFLAR' && $week_number !== 0) {
-            return lookup_game_type($conn, $league_code, 'Consolation Pre-Season');
-        }
         return lookup_game_type($conn, $league_code, 'Pre Season');
     }
 
