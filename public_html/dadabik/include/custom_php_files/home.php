@@ -100,8 +100,11 @@ foreach ($_cp_league_stats as $ls) {
 }
 echo "<p>We have " . implode(' and ', $_cp_summary_parts) . " games in our database, the latest updates are:-</p>";
 
-echo "<table style='width:40%' class='w3-table w3-striped w3-bordered'>";
-echo "<tr class='w3-blue w3-text-white'><th>League</th><th>Latest Week</th></tr>";
+// H45 (3 Oct 2026, Alan's NZ3): a Current Champions column. width:auto and nowrap rather than
+// width:40%: the champion's name and its run of titles need the room, and no cell should wrap
+// (the same reasoning as current_standings.php, H40).
+echo "<table style='width:auto;white-space:nowrap' class='w3-table w3-striped w3-bordered'>";
+echo "<tr class='w3-blue w3-text-white'><th>League</th><th>Latest Week</th><th>Current Champions</th></tr>";
 $i = 0;
 foreach ($_cp_league_stats as $ls) {
     $row_class = (($i % 2) == 1) ? 'w3-white w3-text-black' : 'w3-light-grey w3-text-black';
@@ -112,8 +115,16 @@ foreach ($_cp_league_stats as $ls) {
     $_cp_stmt2->execute();
     $_cp_week_row = $_cp_stmt2->fetch(PDO::FETCH_ASSOC);
     $latest_label = $_cp_week_row ? "{$_cp_week_row['year']} Wk {$_cp_week_row['week_number']}" : '-';
+    $_cp_champ = home_current_champion($conn, $ls['league_id']);
+    $_cp_champ_text = '-';
+    if ($_cp_champ) {
+        $_cp_champ_text = htmlspecialchars($_cp_champ['name']);
+        if ($_cp_champ['run'] >= 2) {
+            $_cp_champ_text .= " ({$_cp_champ['run']} consecutive titles)";
+        }
+    }
     echo "<tr class='$row_class'><td>" . htmlspecialchars($ls['code']) . "</td><td>"
-       . htmlspecialchars($latest_label) . "</td></tr>";
+       . htmlspecialchars($latest_label) . "</td><td>$_cp_champ_text</td></tr>";
     $i++;
 }
 echo "</table><br>";
@@ -128,6 +139,81 @@ if ($_cp_fact) {
 }
 
 echo "</div>";  // closes the outer w3-theme-d5 wrapper opened at the very top of the page
+
+// --------------------------------------------------------------
+// Current champions (H45, 3 Oct 2026)
+// --------------------------------------------------------------
+
+// The winner of the league's most recent championship game, and how many seasons in a row that
+// franchise has won it. Read from the GAMES, not from franchise_honors: the honours can lag the
+// games (NCAA5 2038's final was loaded with no LEAGUE_WINNER honour written, H46), and a played
+// final is the record of who won. The championship game is found by its game type's name
+// ('Superbowl' for NFLAR, 'National Championship Game' for NCAA5, as game_types holds them,
+// measured 3 Oct 2026) rather than by id, so the page reads as what it means.
+//
+// Named by the identity the franchise played under in that game's week (GP_IDENT_GAME_TEAMS,
+// gp_identity.php), not franchises.label, which is the slot's present-day name (schema.md s12).
+//
+// The run counts back season by season while the same franchise slot, under the same name, won
+// the final. A season
+// with no final on record, or a final without a winner, ends the run: a gap is not "consecutive"
+// (the same rule as division_current_streak() on current_standings.php). Alan, Q4 and Q5 of
+// 3 Oct 2026: the winner of the latest final; "(N consecutive titles)" shown only from 2.
+function home_current_champion($conn, $league_id) {
+    $sql = "SELECT s.year, g.home_franchise_id, g.away_franchise_id, g.home_score, g.away_score,
+                   hf.label AS home_label, af.label AS away_label,
+                   hi.team_name AS home_ident, ai.team_name AS away_ident
+            FROM games g
+            JOIN game_types gt ON gt.game_type_id = g.game_type_id
+            JOIN weeks w ON w.week_id = g.week_id
+            JOIN seasons s ON s.season_id = w.season_id
+            JOIN franchises hf ON hf.franchise_id = g.home_franchise_id
+            JOIN franchises af ON af.franchise_id = g.away_franchise_id
+            " . gp_ident_join('hi', 'g.home_franchise_id', 'g.week_id') . "
+            " . gp_ident_join('ai', 'g.away_franchise_id', 'g.week_id') . "
+            WHERE s.league_id = :league_id
+              AND gt.name IN ('Superbowl', 'National Championship Game')
+              AND g.home_score IS NOT NULL AND g.away_score IS NOT NULL
+            ORDER BY s.year DESC";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindParam(':league_id', $league_id);
+    $stmt->execute();
+    $finals = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($finals)) {
+        return null;
+    }
+
+    $winner = static function ($f) {
+        if ((int)$f['home_score'] > (int)$f['away_score']) {
+            return ['id' => (int)$f['home_franchise_id'], 'ident' => $f['home_ident'], 'label' => $f['home_label']];
+        }
+        if ((int)$f['away_score'] > (int)$f['home_score']) {
+            return ['id' => (int)$f['away_franchise_id'], 'ident' => $f['away_ident'], 'label' => $f['away_label']];
+        }
+        return null;   // a tied final names no champion
+    };
+
+    $champ = $winner($finals[0]);
+    if (!$champ) {
+        return null;
+    }
+    $name = gp_ident_name(GP_IDENT_GAME_TEAMS, $champ['ident'], $champ['label']);
+    // A run needs the same slot AND the same name: a slot that won under one identity and then
+    // another (franchise 2013 won as Arizona Cardinals in 2007 and New York Giants in 2010) is
+    // not one team's run of titles.
+    $run = 1;
+    $prev_year = (int)$finals[0]['year'];
+    for ($i = 1; $i < count($finals); $i++) {
+        $w = $winner($finals[$i]);
+        if ((int)$finals[$i]['year'] !== $prev_year - 1 || !$w || $w['id'] !== $champ['id']
+            || gp_ident_name(GP_IDENT_GAME_TEAMS, $w['ident'], $w['label']) !== $name) {
+            break;
+        }
+        $run++;
+        $prev_year = (int)$finals[$i]['year'];
+    }
+    return ['name' => $name, 'run' => $run];
+}
 
 // --------------------------------------------------------------
 // Random stat pool
