@@ -108,10 +108,20 @@ echo "<tr class='w3-blue w3-text-white'><th>League</th><th>Latest Week</th><th>C
 $i = 0;
 foreach ($_cp_league_stats as $ls) {
     $row_class = (($i % 2) == 1) ? 'w3-white w3-text-black' : 'w3-light-grey w3-text-black';
+    // H49 (3 Oct 2026): the league's latest week WITH GAMES by chronology (season year, then
+    // week number), not MAX(week_id). week_id is assigned when a week is first seen, so a week
+    // uploaded late gets the newest id: NFLAR 2034 week 17, uploaded after weeks 19 and 20, made
+    // this column read "2034 Wk 17" (Alan's screenshot, 3 Oct 2026). The same failure A3 fixed
+    // in v_current_standings_week (new_schema.sql: "Chronology is (seasons.year,
+    // weeks.week_number) -- NOT MAX(week_id)"). latest_week_id above is no longer read here.
     $_cp_stmt2 = $conn->prepare(
-        "SELECT s.year, w.week_number FROM weeks w JOIN seasons s ON s.season_id = w.season_id WHERE w.week_id = :wid"
+        "SELECT s.year, w.week_number
+         FROM weeks w JOIN seasons s ON s.season_id = w.season_id
+         WHERE s.league_id = :lid AND EXISTS (SELECT 1 FROM games g WHERE g.week_id = w.week_id)
+         ORDER BY s.year DESC, w.week_number DESC
+         LIMIT 1"
     );
-    $_cp_stmt2->bindParam(':wid', $ls['latest_week_id']);
+    $_cp_stmt2->bindParam(':lid', $ls['league_id']);
     $_cp_stmt2->execute();
     $_cp_week_row = $_cp_stmt2->fetch(PDO::FETCH_ASSOC);
     $latest_label = $_cp_week_row ? "{$_cp_week_row['year']} Wk {$_cp_week_row['week_number']}" : '-';
