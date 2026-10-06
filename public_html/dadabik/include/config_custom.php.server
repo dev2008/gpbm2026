@@ -68,9 +68,9 @@ $timezone    = 'Europe/London';
    PDO constructor in db_functions_pdo.php connect_db()). The flags are MariaDB 10.11's default
    set, which gpbm.uk's shared server does NOT give the site's account (measured 3 Oct 2026,
    V30: NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION only). Strict refuses a bad value instead of
-   truncating it with a warning. Set explicitly on BOTH hosts so dev (MariaDB 11.8,
-   whose default adds IGNORE_SPACE) and production run the same mode (03-SETUP.md item 26).
-   One line, so h26-config-drift-check.sh reads it. */
+   truncating it with a warning. Set explicitly on BOTH hosts so dev (MariaDB 11.8, whose server
+   default is this same set) and production run the same mode whatever either server's default
+   is (03-SETUP.md item 26). One line, so h26-config-drift-check.sh reads it. */
 $additional_db_connection_parameters = array(PDO::MYSQL_ATTR_INIT_COMMAND => "SET SESSION sql_mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'");
 $languages_ar = array ('english');
 $files_url   = 'https://files.gpbm.uk/';    // Q4 of SESSION_20261003_5, Alan 3 Oct 2026

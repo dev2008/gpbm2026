@@ -129,6 +129,15 @@ if (!$_cp_standalone) {
     try {
         $facts['Database']  = $conn->query('SELECT DATABASE()')->fetchColumn();
         $facts['DB server'] = $conn->query('SELECT VERSION()')->fetchColumn();
+        // The sql_mode THIS connection runs under, with the server's default beside it when the
+        // two differ: an application that sets its own (GPBM H50, 6 Oct 2026) or a shared host
+        // whose default is not what the application needs both show here, in the web runtime,
+        // which is the only place the answer counts. Added 6 Oct 2026 (GPBM Q6).
+        $_cp_sm = $conn->query('SELECT @@SESSION.sql_mode AS s, @@GLOBAL.sql_mode AS g')->fetch(PDO::FETCH_ASSOC);
+        $_cp_show = static fn (string $m): string => $m === '' ? '(empty)' : $m;
+        $facts['DB sql_mode'] = $_cp_show((string)$_cp_sm['s'])
+            . ($_cp_sm['s'] === $_cp_sm['g'] ? ' (= server default)'
+                                             : ' (server default: ' . $_cp_show((string)$_cp_sm['g']) . ')');
         // Which SERVER, not which account: @@time_zone belongs to the server this
         // connection landed on, and two instances on one hosting account may or may not
         // share one. Printing @@hostname means that is read rather than assumed.
