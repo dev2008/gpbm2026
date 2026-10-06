@@ -26,6 +26,17 @@ $default_install_enable_tables_on_creation = 'no';
 /* [A9] Every value in this block differs on gpbm.uk. */
 $dbms_type   = 'mysql';
 $timezone    = 'Europe/London';
+
+/* ===== sql_mode (H50, 6 Oct 2026) ================================================== */
+/* Every connection DaDaBIK opens runs under this sql_mode, set as the PDO init command through
+   DaDaBIK's own $additional_db_connection_parameters hook (config.php line 1654; merged into the
+   PDO constructor in db_functions_pdo.php connect_db()). The flags are MariaDB 10.11's default
+   set, which gpbm.uk's shared server does NOT give the site's account (measured 3 Oct 2026,
+   V30: NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION only). Strict refuses a bad value instead of
+   truncating it with a warning. Set explicitly on BOTH hosts so dev (MariaDB 11.8,
+   whose default adds IGNORE_SPACE) and production run the same mode (03-SETUP.md item 26).
+   One line, so h26-config-drift-check.sh reads it. */
+$additional_db_connection_parameters = array(PDO::MYSQL_ATTR_INIT_COMMAND => "SET SESSION sql_mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'");
 $languages_ar = array ('english');
 $files_url   = 'http://files.gpbm.local/';   // [A9] host-specific
 $images_url  = 'http://images.gpbm.local/';  // [A9] host-specific
