@@ -117,6 +117,32 @@ $facts = [
     'PHP timezone'    => date_default_timezone_get()
                          . ' (ini: ' . (ini_get('date.timezone') ?: 'unset -- UTC assumed') . ')',
     'PHP clock'       => date('Y-m-d H:i:s') . ' local / ' . gmdate('Y-m-d H:i:s') . ' UTC',
+    // PHP session, as THIS runtime runs it. Added 8 Oct 2026 (GPBM H57): a login that survives the
+    // browser on one host and not on another is decided by cookie_lifetime (0 = the cookie dies
+    // with the browser) and by whether anything ever expires the server-side file (gc_maxlifetime,
+    // gc_probability/divisor; a shared host's cleaner). Read here, in the web runtime, not from
+    // php.ini: ini_set() in DaDaBIK or a bootstrap wins over the file. The cookie params are
+    // whatever is in force when this page runs; DaDaBIK has started the session by then.
+    'PHP session'     => (static function (): string {
+        $st = ['' => 'disabled', '0' => 'disabled', '1' => 'none started', '2' => 'active'][(string)session_status()] ?? '?';
+        $nm = session_name() ?: '(no name)';
+        $has = isset($_COOKIE[$nm]) ? 'request carried the cookie' : 'request carried NO cookie';
+        return "$nm: $st; $has";
+    })(),
+    'Session cookie'  => (static function (): string {
+        $p = session_get_cookie_params();
+        $life = (int)$p['lifetime'];
+        return 'lifetime ' . number_format($life) . 's' . ($life === 0 ? ' (dies with the browser)' : ' (' . round($life / 86400, 1) . ' days)')
+             . '; path ' . ($p['path'] ?: '(none)') . '; domain ' . ($p['domain'] !== '' ? $p['domain'] : '(host only)')
+             . '; secure ' . ($p['secure'] ? 'yes' : 'no') . '; httponly ' . ($p['httponly'] ? 'yes' : 'no')
+             . '; samesite ' . (($p['samesite'] ?? '') !== '' ? $p['samesite'] : '(unset)');
+    })(),
+    'Session store'   => 'handler ' . (ini_get('session.save_handler') ?: '?')
+                         . '; path ' . (ini_get('session.save_path') ?: '(default)')
+                         . '; gc_maxlifetime ' . number_format((int)ini_get('session.gc_maxlifetime')) . 's'
+                         . '; gc ' . (int)ini_get('session.gc_probability') . '/' . (int)ini_get('session.gc_divisor')
+                         . ((int)ini_get('session.gc_probability') === 0 ? ' (PHP never collects here; something else must)' : '')
+                         . '; cookie_lifetime ini ' . (int)ini_get('session.cookie_lifetime') . 's',
     'Mode'            => $_cp_standalone ? 'STANDALONE' : 'Dadabik',
     'Page gate'       => $_cp_standalone ? 'standalone token' : $_cp_gate_note,
     'Generated'       => date('Y-m-d H:i:s'),
