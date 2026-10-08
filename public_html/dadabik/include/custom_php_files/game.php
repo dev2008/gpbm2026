@@ -5,6 +5,10 @@ if(!defined('custom_page_from_inclusion')) { die(); }
 // DaDaBIK's bootstrap includes error_handler.php before any custom page runs (measured),
 // and display_errors is a php.ini setting per environment. See H26.
 // Plain PDO throughout, same as every other custom page in this app -- no g_functions.php.
+// H56 (8-Oct-2026, game r001, Q2): the same five changes as replay.php r001, in this page's
+// sub-title and its Playback widget: the season not repeated (weeks.label carries it); one
+// "Call" cell ("D DL WC"); the box's Score line only on a play that changed the score; the
+// buttons above the result box; no "Play n of N". The Table view is unchanged.
 // A5 (17-Aug-2026): week-grain identity resolution + the internal display toggles. Hard
 // dependency -- see gp_identity.php's header for why it is not
 // guarded and why the resolution does not go through franchises.label any more.
@@ -145,8 +149,13 @@ $_cp_subtitle_parts = [];
 if ($_cp_game['game_type_name'] && $_cp_game['phase'] !== 'regular') {
     $_cp_subtitle_parts[] = "<strong>" . htmlspecialchars($_cp_game['game_type_name']) . "</strong>";
 }
-$_cp_subtitle_parts[] = htmlspecialchars($_cp_game['season_label'] ?: ($_cp_game['league_code'] . ' ' . $_cp_game['season_year']));
-$_cp_subtitle_parts[] = htmlspecialchars($_cp_game['week_label'] ?: ('Week ' . $_cp_game['week_number']));
+$_cp_season_raw = $_cp_game['season_label'] ?: ($_cp_game['league_code'] . ' ' . $_cp_game['season_year']);
+$_cp_week_raw = $_cp_game['week_label'] ?: ('Week ' . $_cp_game['week_number']);
+// H56 (1): weeks.label is "<season label> Wk n"; the season is shown only when the week label does not start with it.
+if (strncmp($_cp_week_raw, $_cp_season_raw . ' ', strlen($_cp_season_raw) + 1) !== 0) {
+    $_cp_subtitle_parts[] = htmlspecialchars($_cp_season_raw);
+}
+$_cp_subtitle_parts[] = htmlspecialchars($_cp_week_raw);
 if ($_cp_game['neutral_site']) {
     $_cp_subtitle_parts[] = "Neutral Site";
 }
@@ -522,10 +531,11 @@ function render_plays_section($conn, $game_id, $game) {
             'offense' => gp_ident_name(GP_IDENT_GAME_TEAMS, $p['offense_ident'], $p['offense_label']) ?: '-',
             'ball_on' => $p['field_position'] !== null ? trim(($p['field_side'] ?? '') . ' ' . $p['field_position']) : '-',
             'down_dist' => format_down_distance_plain($p['down'], $p['yards_to_go']),
-            'formation' => $p['formation'] ?: '-',
-            'off_call' => $p['off_call'] ?: '-',
-            'def_call' => $p['def_call'] ?: '-',
+            // H56 (2): one line, "<formation> <off call> <def call>".
+            'call' => implode(' ', [$p['formation'] ?: '-', $p['off_call'] ?: '-', $p['def_call'] ?: '-']),
             'score_before' => $score_before ?: '-',
+            // H56 (3): true only on a play that changed the score (score_after is set only on those).
+            'scored' => ($p['score_after'] !== null && $p['score_after'] !== ''),
             'result' => $p['result_text'],
             'yards' => $p['yards_gained'] !== null ? (int)$p['yards_gained'] : null,
             'score_after' => $running_score ?: '-',
@@ -615,7 +625,7 @@ function plays_table_row($p, $score_after_display) {
 function playback_widget_skeleton() {
     $out = "<div class='w3-panel w3-theme-l4 w3-text-black' style='padding:16px'>";
     $out .= "<div id='pbp-quarter-heading' style='font-weight:bold;font-size:1.15em;margin-bottom:4px'></div>";
-    $out .= "<div id='pbp-play-counter' style='font-size:0.85em;color:#555;margin-bottom:12px'></div>";
+    // H56 (5): no "Play n of N" line; the total was a spoiler.
 
     $out .= "<div style='display:flex;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px'>"
           . "<div><strong>Score:</strong> <span id='pbp-score'></span></div>"
@@ -623,18 +633,18 @@ function playback_widget_skeleton() {
 
     $out .= "<table class='w3-table w3-bordered w3-white w3-text-black' style='margin-bottom:14px'>"
           . "<tr><th>Time</th><td id='pbp-time'></td><th>Ball On</th><td id='pbp-ballon'></td></tr>"
-          . "<tr><th>Down &amp; Dist</th><td id='pbp-downdist'></td><th>Formation</th><td id='pbp-formation'></td></tr>"
-          . "<tr><th>Off Call</th><td id='pbp-offcall'></td><th>Def Call</th><td id='pbp-defcall'></td></tr>"
+          . "<tr><th>Down &amp; Dist</th><td id='pbp-downdist'></td><th>Call</th><td id='pbp-call'></td></tr>"
           . "</table>";
 
-    $out .= "<div id='pbp-result-box' class='w3-white w3-text-black' "
-          . "style='min-height:70px;padding:10px;border:1px dashed #999;margin-bottom:14px'></div>";
-
-    $out .= "<div>"
+    // H56 (4): the buttons ABOVE the result box, so they stay in one place whatever the box holds.
+    $out .= "<div style='margin-bottom:14px'>"
           . "<button type='button' class='w3-button w3-theme-d1' id='pbp-prev-btn' onclick='pbpPrev()'>&larr; Previous</button> "
           . "<button type='button' class='w3-button w3-theme' id='pbp-main-btn' onclick='pbpMainAction()'>Reveal Result</button> "
           . "<button type='button' class='w3-button w3-theme-l1' onclick='pbpBackToChoice()'>Back</button>"
           . "</div>";
+
+    $out .= "<div id='pbp-result-box' class='w3-white w3-text-black' "
+          . "style='min-height:70px;padding:10px;border:1px dashed #999;margin-bottom:14px'></div>";
 
     $out .= "</div>";
     return $out;
@@ -659,15 +669,12 @@ function playback_widget_script() {
     function pbpRenderPlay() {
         var p = pbpData[pbpIndex];
         pbpEl('pbp-quarter-heading').textContent = p.quarter_label;
-        pbpEl('pbp-play-counter').textContent = 'Play ' + (pbpIndex + 1) + ' of ' + pbpData.length;
         pbpEl('pbp-score').textContent = p.score_before;
         pbpEl('pbp-offense').textContent = p.offense;
         pbpEl('pbp-time').textContent = p.time;
         pbpEl('pbp-ballon').textContent = p.ball_on;
         pbpEl('pbp-downdist').textContent = p.down_dist;
-        pbpEl('pbp-formation').textContent = p.formation;
-        pbpEl('pbp-offcall').textContent = p.off_call;
-        pbpEl('pbp-defcall').textContent = p.def_call;
+        pbpEl('pbp-call').textContent = p.call;
 
         var box = pbpEl('pbp-result-box');
         box.textContent = '';
@@ -708,10 +715,13 @@ function playback_widget_script() {
             box.appendChild(badgeRow);
         }
 
-        var scoreLine = document.createElement('div');
-        scoreLine.style.marginTop = '6px';
-        scoreLine.textContent = 'Score: ' + p.score_after;
-        box.appendChild(scoreLine);
+        // H56 (3): the score is repeated in the box only when this play changed it.
+        if (p.scored) {
+            var scoreLine = document.createElement('div');
+            scoreLine.style.marginTop = '6px';
+            scoreLine.textContent = 'Score: ' + p.score_after;
+            box.appendChild(scoreLine);
+        }
 
         pbpEl('pbp-score').textContent = p.score_after;
         pbpEl('pbp-main-btn').textContent = (pbpIndex < pbpData.length - 1) ? 'Next Play \u2192' : 'End of Game';
