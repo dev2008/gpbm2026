@@ -8,6 +8,14 @@ if(!defined('custom_page_from_inclusion')) { die(); }
 // shared include the header above says would be worth introducing "if this logic ever needs to
 // change in both places" -- it now needs to change in four, so here it is.
 include_once(__DIR__ . '/gp_identity.php');
+// H56 (8-Oct-2026, replay r001): Alan's five Live Replay issues from the NCAA5 2039 Wk 8 game.
+// (1) the sub-title printed the season twice: weeks.label already carries the season ("NCAA5 2039
+// Wk 8", every one of the 1,094 rows measured 8 Oct 2026), so the season label is printed only when
+// the week label does not start with it; (2) formation, offensive call and defensive call on ONE
+// line, "D DL WC", not three cells; (3) the result box repeats the score only on a play that
+// changed it (plays.score_after is set only on a scoring play, measured: no set value ever equals
+// the previous one); (4) the buttons sit ABOVE the result box so they never move; (5) no "Play n of
+// N": the total gives away how long the game runs. game.php's Playback mode is untouched (Q2).
 
 // ------------------------------------------------------------------
 // Live Replay -- standalone, spoiler-free entry point for a single game's
@@ -114,9 +122,16 @@ $_cp_title = gp_game_title($_cp_game);
 echo "<div class='w3-panel w3-theme'>";
 echo "<h1 class='w3-text-white' style='text-shadow:1px 1px 0 #444'><b>"
    . htmlspecialchars($_cp_title) . " &mdash; Live Replay</b></h1>";
-$_cp_season_text = htmlspecialchars($_cp_game['season_label'] ?: $_cp_game['league_code'] . ' ' . $_cp_game['season_year']);
-$_cp_week_text = htmlspecialchars($_cp_game['week_label'] ?: 'Week ' . $_cp_game['week_number']);
-echo "<p class='w3-text-white'>$_cp_season_text &middot; $_cp_week_text</p>";
+$_cp_season_raw = $_cp_game['season_label'] ?: $_cp_game['league_code'] . ' ' . $_cp_game['season_year'];
+$_cp_week_raw = $_cp_game['week_label'] ?: 'Week ' . $_cp_game['week_number'];
+// H56 (1): weeks.label is "<season label> Wk n", so printing both repeated the season. The season is
+// shown only when the week label does not already start with it.
+if (strncmp($_cp_week_raw, $_cp_season_raw . ' ', strlen($_cp_season_raw) + 1) === 0) {
+    $_cp_subtitle = htmlspecialchars($_cp_week_raw);
+} else {
+    $_cp_subtitle = htmlspecialchars($_cp_season_raw) . ' &middot; ' . htmlspecialchars($_cp_week_raw);
+}
+echo "<p class='w3-text-white'>$_cp_subtitle</p>";
 echo "</div>";
 
 // -------------------- Plays -- same query/logic as game.php's render_plays_section --------------------
@@ -202,10 +217,11 @@ foreach ($_cp_plays as $p) {
         'offense' => gp_ident_name(GP_IDENT_GAME_TEAMS, $p['offense_ident'], $p['offense_label']) ?: '-',
         'ball_on' => $p['field_position'] !== null ? trim(($p['field_side'] ?? '') . ' ' . $p['field_position']) : '-',
         'down_dist' => format_down_distance_plain($p['down'], $p['yards_to_go']),
-        'formation' => $p['formation'] ?: '-',
-        'off_call' => $p['off_call'] ?: '-',
-        'def_call' => $p['def_call'] ?: '-',
+        // H56 (2): one line, "<formation> <off call> <def call>", e.g. "D DL WC".
+        'call' => implode(' ', [$p['formation'] ?: '-', $p['off_call'] ?: '-', $p['def_call'] ?: '-']),
         'score_before' => $score_before ?: '-',
+        // H56 (3): true only on a play that changed the score (score_after is set only on those).
+        'scored' => ($p['score_after'] !== null && $p['score_after'] !== ''),
         'result' => $p['result_text'],
         'yards' => $p['yards_gained'] !== null ? (int)$p['yards_gained'] : null,
         'score_after' => $running_score ?: '-',
@@ -216,21 +232,21 @@ foreach ($_cp_plays as $p) {
 // -------------------- Playback widget (no mode choice, no table -- goes straight in) --------------------
 echo "<div class='w3-panel w3-theme-l4 w3-text-black' style='padding:16px'>";
 echo "<div id='pbp-quarter-heading' style='font-weight:bold;font-size:1.15em;margin-bottom:4px'></div>";
-echo "<div id='pbp-play-counter' style='font-size:0.85em;color:#555;margin-bottom:12px'></div>";
+// H56 (5): no "Play n of N" line here; the total was a spoiler.
 echo "<div style='display:flex;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px'>"
    . "<div><strong>Score:</strong> <span id='pbp-score'></span></div>"
    . "<div><strong>Offense:</strong> <span id='pbp-offense'></span></div></div>";
 echo "<table class='w3-table w3-bordered w3-white w3-text-black' style='margin-bottom:14px'>"
    . "<tr><th>Time</th><td id='pbp-time'></td><th>Ball On</th><td id='pbp-ballon'></td></tr>"
-   . "<tr><th>Down &amp; Dist</th><td id='pbp-downdist'></td><th>Formation</th><td id='pbp-formation'></td></tr>"
-   . "<tr><th>Off Call</th><td id='pbp-offcall'></td><th>Def Call</th><td id='pbp-defcall'></td></tr>"
+   . "<tr><th>Down &amp; Dist</th><td id='pbp-downdist'></td><th>Call</th><td id='pbp-call'></td></tr>"
    . "</table>";
-echo "<div id='pbp-result-box' class='w3-white w3-text-black' "
-   . "style='min-height:70px;padding:10px;border:1px dashed #999;margin-bottom:14px'></div>";
-echo "<div>"
+// H56 (4): the buttons ABOVE the result box, so they stay in one place whatever the box holds.
+echo "<div style='margin-bottom:14px'>"
    . "<button type='button' class='w3-button w3-theme-d1' id='pbp-prev-btn' onclick='pbpPrev()'>&larr; Previous</button> "
    . "<button type='button' class='w3-button w3-theme' id='pbp-main-btn' onclick='pbpMainAction()'>Reveal Result</button>"
    . "</div>";
+echo "<div id='pbp-result-box' class='w3-white w3-text-black' "
+   . "style='min-height:70px;padding:10px;border:1px dashed #999;margin-bottom:14px'></div>";
 echo "</div>";
 
 echo "<script type='application/json' id='pbp-data'>"
@@ -249,15 +265,12 @@ echo <<<'JS'
     function pbpRenderPlay() {
         var p = pbpData[pbpIndex];
         pbpEl('pbp-quarter-heading').textContent = p.quarter_label;
-        pbpEl('pbp-play-counter').textContent = 'Play ' + (pbpIndex + 1) + ' of ' + pbpData.length;
         pbpEl('pbp-score').textContent = p.score_before;
         pbpEl('pbp-offense').textContent = p.offense;
         pbpEl('pbp-time').textContent = p.time;
         pbpEl('pbp-ballon').textContent = p.ball_on;
         pbpEl('pbp-downdist').textContent = p.down_dist;
-        pbpEl('pbp-formation').textContent = p.formation;
-        pbpEl('pbp-offcall').textContent = p.off_call;
-        pbpEl('pbp-defcall').textContent = p.def_call;
+        pbpEl('pbp-call').textContent = p.call;
 
         var box = pbpEl('pbp-result-box');
         box.textContent = '';
@@ -298,10 +311,13 @@ echo <<<'JS'
             box.appendChild(badgeRow);
         }
 
-        var scoreLine = document.createElement('div');
-        scoreLine.style.marginTop = '6px';
-        scoreLine.textContent = 'Score: ' + p.score_after;
-        box.appendChild(scoreLine);
+        // H56 (3): the score is repeated in the box only when this play changed it.
+        if (p.scored) {
+            var scoreLine = document.createElement('div');
+            scoreLine.style.marginTop = '6px';
+            scoreLine.textContent = 'Score: ' + p.score_after;
+            box.appendChild(scoreLine);
+        }
 
         pbpEl('pbp-score').textContent = p.score_after;
         pbpEl('pbp-main-btn').textContent = (pbpIndex < pbpData.length - 1) ? 'Next Play \u2192' : 'End of Game';
