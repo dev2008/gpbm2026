@@ -1,5 +1,13 @@
 <?php
-// session_bootstrap.php - GameplanPBM - rev 001 - 8 Oct 2026 (H57)
+// session_bootstrap.php - GameplanPBM - rev 002 - 9 Oct 2026 (H57)
+// rev 002: after the session starts, an error handler swallows exactly the four complaints DaDaBIK's
+//          include/common_start.php raises against an already-active session (measured on dev 9 Oct 2026,
+//          four log lines per page view: session_name, ini_set, session_set_cookie_params, session_start
+//          ignored). Those refusals are what make the 30-day settings win; the log should not pay for
+//          them. Everything else falls through to the standard handler exactly as before. If DaDaBIK
+//          installs its own handler before common_start.php runs, ours is replaced and the lines come
+//          back: the dev measurement (RUNBOOK_h57b step 2b) is the proof either way.
+// rev 001: 8 Oct 2026, first issue.
 // Byte-identical on every host. Copied from Civ's 4hof/session_bootstrap.php rev 002 (12 Sep 2026),
 // the shape proved on MountZion and 20i; the per-host facts come from env_bootstrap.php, which
 // .user.ini names by an absolute path (auto_prepend_file), so this runs BEFORE DaDaBIK's index.php.
@@ -70,6 +78,23 @@ setcookie(session_name(), session_id(), [
     'httponly' => $httponly,
     'samesite' => $samesite,
 ]);
+
+// rev 002: DaDaBIK's own session calls, refused because the session is already running. Only these four
+// messages, only at E_WARNING / E_NOTICE; anything else returns false and goes where it always went.
+set_error_handler(static function (int $errno, string $errstr): bool {
+    static $expected = [
+        'Session name cannot be changed when a session is active',
+        'Session ini settings cannot be changed when a session is active',
+        'Session cookie parameters cannot be changed when a session is active',
+        'Ignoring session_start() because a session is already active',
+    ];
+    foreach ($expected as $e) {
+        if (strpos($errstr, $e) !== false) {
+            return true;
+        }
+    }
+    return false;
+}, E_WARNING | E_NOTICE);
 
 register_shutdown_function(function () use ($lifetime, $path, $secure, $httponly, $samesite) {
     if (session_status() === PHP_SESSION_ACTIVE) {
