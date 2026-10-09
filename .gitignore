@@ -64,3 +64,6 @@ public_html/dadabik/error_logs/*
 *.pre-*
 Claude outputs/
 # --------------------------------------------------------------------------
+private/
+public_html/dadabik/env_bootstrap.php
+public_html/dadabik/.user.ini

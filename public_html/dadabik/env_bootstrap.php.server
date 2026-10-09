@@ -1,0 +1,10 @@
+<?php
+// env_bootstrap.php - GameplanPBM - PRODUCTION (gpbm.uk, 20i) - rev 001 - 8 Oct 2026 (H57). THIS FILE IS PER HOST.
+// .user.ini names this file by an absolute path, so this is the one place that knows which host it
+// is on without looking for data. Do NOT copy it between hosts: .local is MountZion's.
+// GPBM_SESSION_NAME must equal $dadabik_session_name in this host's config_custom.php
+// (gpbm.uk: gpbmsessionA1, whoami V18 8 Oct 2026).
+define('GPBM_ENV', 'prod');
+define('GPBM_SESSION_PATH', '/home/sites/7a/9/917dc0194c/private/php_sessions');   // outside the web root; created by hand, 700 (PHP runs as the account)
+define('GPBM_SESSION_NAME', 'gpbmsessionA1');
+require_once __DIR__ . '/session_bootstrap.php';

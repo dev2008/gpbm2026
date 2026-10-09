@@ -1,0 +1,4 @@
+; .user.ini - GameplanPBM - DEV (MountZion) - rev 001 - 8 Oct 2026 (H57). PER HOST: the prepend path is absolute.
+; Read by PHP-FPM for every request under public_html/dadabik/ (cached user_ini.cache_ttl = 300s: a change takes up to 5 minutes).
+session.auto_start = 0
+auto_prepend_file = "/var/www/gpbm/public_html/dadabik/env_bootstrap.php"
