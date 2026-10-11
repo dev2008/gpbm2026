@@ -62,7 +62,9 @@ function build_game_link($game_id) {
     );
 }
 
-$_cp_league = (isset($_GET['league']) && $_GET['league'] === 'NCAA5') ? 'NCAA5' : 'NFLAR';
+// H52 (11 Oct 2026): league= is read by the shared helper; an unserved league shows the default with a visible note.
+include_once(__DIR__ . '/gp_league.php');
+[$_cp_league, $_cp_league_note] = gp_league_from_url();
 
 // -------------------- League toggle --------------------
 function build_page_link($params) {
@@ -74,7 +76,7 @@ function build_page_link($params) {
 
 echo "<h1>Team Summary</h1>";
 
-$_cp_leagues = ['NFLAR' => 'NFLAR (Pro)', 'NCAA5' => 'NCAA5 (College)'];
+$_cp_leagues = gp_leagues_served();
 echo "<div class='w3-bar w3-light-grey w3-text-black' style='margin-bottom:16px'>";
 foreach ($_cp_leagues as $code => $display_name) {
     $active = ($code === $_cp_league) ? 'w3-theme w3-text-white' : '';
@@ -83,6 +85,7 @@ foreach ($_cp_leagues as $code => $display_name) {
     echo "<a href='$link' class='w3-bar-item w3-button $active'>$display_name</a>";
 }
 echo "</div>";
+echo gp_league_note_html($_cp_league_note);
 
 // -------------------- Franchise selector --------------------
 $_cp_sql = "SELECT f.franchise_id, f.label

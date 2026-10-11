@@ -45,7 +45,9 @@ define('TEAM_PAGE_STATIC_ID', 4);
 // coach.php's registered id_static_page (confirmed value, see conversation).
 define('COACH_PAGE_STATIC_ID', 12);
 
-$_cp_league = (isset($_GET['league']) && $_GET['league'] === 'NCAA5') ? 'NCAA5' : 'NFLAR';
+// H52 (11 Oct 2026): league= is read by the shared helper; an unserved league shows the default with a visible note.
+include_once(__DIR__ . '/gp_league.php');
+[$_cp_league, $_cp_league_note] = gp_league_from_url();
 
 $_cp_league_logos = ['NFLAR' => 'NFL_logo.png', 'NCAA5' => 'NCAA_logo.png'];
 $_cp_league_logo_url = $images_url . $_cp_league_logos[$_cp_league];
@@ -70,7 +72,7 @@ function build_league_link($code) {
     return htmlspecialchars($parsed['path'] . '?' . http_build_query($params));
 }
 
-$_cp_leagues = ['NFLAR' => 'NFLAR (Pro)', 'NCAA5' => 'NCAA5 (College)'];
+$_cp_leagues = gp_leagues_served();
 echo "<div class='w3-bar w3-light-grey w3-text-black' style='margin-bottom:16px'>";
 foreach ($_cp_leagues as $code => $display_name) {
     $active = ($code === $_cp_league) ? 'w3-theme w3-text-white' : '';
@@ -78,6 +80,7 @@ foreach ($_cp_leagues as $code => $display_name) {
     echo "<a href='$link' class='w3-bar-item w3-button $active'>$display_name</a>";
 }
 echo "</div>";
+echo gp_league_note_html($_cp_league_note);
 
 // One query for the whole page -- already sorted correctly (league,
 // conference, division in E/C/W order, wins/ties/differential desc)
