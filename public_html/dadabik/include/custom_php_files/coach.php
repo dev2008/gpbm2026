@@ -149,8 +149,17 @@ if (isset($_GET['who']) && preg_match('/^([uc])(\d+)$/', $_GET['who'], $_cp_who_
     $_cp_id_user = (int)$_GET['user'];
 } elseif (isset($_GET['coach'])) {
     $_cp_coach_id = (int)$_GET['coach'];
-} elseif (($current_id_group ?? 3) != 3) {
-    $_cp_id_user = (int)($_SESSION['logged_user_infos_ar']['id_user'] ?? 0);
+} elseif (($current_id_group ?? 3) != 3 && (string)($current_user ?? '') !== '') {
+    // H51 (12 Oct 2026): a logged-in coach opens on their own record. The id comes from DaDaBIK's
+    // documented $current_user (the username) through zpbm_users, and only for a login that has a
+    // coach row; any other login sees the page as before ("Select a coach above"). Was
+    // $_SESSION['logged_user_infos_ar']['id_user'], which did not open on the coach (NZ6, 3 Oct 2026).
+    $_cp_stmt = $conn->prepare("SELECT u.id_user FROM zpbm_users u
+                                WHERE u.username_user = :u
+                                  AND EXISTS (SELECT 1 FROM coaches c WHERE c.id_user = u.id_user)
+                                LIMIT 1");
+    $_cp_stmt->execute([':u' => (string)$current_user]);
+    $_cp_id_user = (int)($_cp_stmt->fetchColumn() ?: 0);
 }
 
 // A ?coach=/?who=cNNN value might actually point at a LINKED coach -- e.g. current_standings.php
