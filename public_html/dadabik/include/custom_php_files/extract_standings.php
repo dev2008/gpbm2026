@@ -52,8 +52,16 @@ if (!function_exists('a4_resolve_franchise_at_week')) {
  * records as 642 rows of silently wrong data ("a resolver permitted to choose, choosing
  * silently"): writing NULL is recoverable, a plausible wrong value is not.
  *
- * Falls back to franchises.label, and the fallback ALWAYS appends to $log. It classifies
- * itself, because two very different situations reach it:
+ * When the week has no row for this name it falls back -- H61 (14 Oct 2026) -- to the
+ * NEAREST WEEKS BEFORE AND AFTER that hold identity rows for this league (across a season
+ * boundary where needed; Alan, Q8 of 12 Oct 2026: "look both backwards and forwards where
+ * the data is available"), via a4_resolve_from_neighbours(). Only when no later week holds
+ * identity rows and the earlier one lacks the name -- a new week processed in order --
+ * does it read franchises.label, which is then this week's identity by definition. Before
+ * H61 it read franchises.label for every such week, which is silently wrong for a historical
+ * week whose name is today's label of another slot (1,194 NFLAR rows, leave-one-week-out,
+ * 14 Oct 2026). Every fallback ALWAYS appends to $log. It classifies itself, because two
+ * very different situations reach it:
  *   seed -- the week has NO identity rows at all. Expected: the first parse of a newly
  *           uploaded week, and every operational_hooks.php run (the hook fires at upload
  *           time, before any extraction page has written identities).
@@ -92,8 +100,29 @@ function a4_resolve_franchise_at_week($conn, $league_id, $week_id, $team_name, &
         return null;
     }
 
-    // No week-grain identity. Fall back to the present-day label, exactly as these three
-    // lookups did before the repoint -- but say so.
+    // No week-grain identity at this week. Classify first (seed or GAP), then H61: the
+    // neighbouring weeks, and the present-day label only for a new week processed in order.
+    $had = ($week_had_identities === null)
+        ? a4_week_has_identities($conn, $league_id, $week_id)
+        : (int)$week_had_identities;
+    $kind = ($had > 0) ? 'GAP' : 'seed';
+    $why  = ($had > 0)
+        ? "this week already has identity rows but '$team_name' is not among them"
+        : "no franchise_identities rows exist for this week yet";
+    $tail = ($had > 0) ? " This one is worth investigating." : " Expected on a week's first parse.";
+
+    $nb = a4_resolve_from_neighbours($conn, $league_id, $week_id, $team_name);
+    if ($nb['status'] === 'ok') {
+        $log[] = "fallback ($kind): $why -- '$team_name' resolved from " . $nb['from'] . "." . $tail;
+        return (int)$nb['id'];
+    }
+    if ($nb['status'] === 'refuse') {
+        $log[] = "REFUSED ($kind): $why, and " . $nb['why'] . " -- refusing to choose; skipped.";
+        return null;
+    }
+
+    // 'latest': no later week holds identity rows and the earlier one lacks this name, so
+    // this is the newest week and today's label is its identity by definition.
     $stmt = $conn->prepare("SELECT franchise_id FROM franchises WHERE league_id = :league_id AND label = :label");
     $stmt->execute([':league_id' => $league_id, ':label' => $team_name]);
     $labels = $stmt->fetchAll(PDO::FETCH_COLUMN);
@@ -105,18 +134,108 @@ function a4_resolve_franchise_at_week($conn, $league_id, $week_id, $team_name, &
         }
         return null;
     }
-
-    $had = ($week_had_identities === null)
-        ? a4_week_has_identities($conn, $league_id, $week_id)
-        : (int)$week_had_identities;
-    if ($had > 0) {
-        $log[] = "fallback (GAP): this week already has identity rows but '$team_name' is not among "
-               . "them -- resolved from franchises.label instead. This one is worth investigating.";
-    } else {
-        $log[] = "fallback (seed): no franchise_identities rows exist for this week yet -- "
-               . "'$team_name' resolved from franchises.label. Expected on a week's first parse.";
-    }
+    $log[] = "fallback ($kind): $why, and no later week holds identity rows -- '$team_name' "
+           . "resolved from franchises.label (the newest week)." . $tail;
     return (int)$labels[0];
+}
+}
+
+if (!function_exists('a4_resolve_from_neighbours')) {
+/**
+ * H61 (14 Oct 2026): a team name's franchise from the NEAREST week before and the nearest
+ * week after this one that hold any franchise_identities rows for this league.
+ *
+ * Weeks are ordered by (seasons.year, phase, week_number) -- never by week_id, which follows
+ * upload order (GPBM §8; H49) -- as year*1000 + phase (preseason 0, regular 100, postseason
+ * 200) + week_number. That key is unique within a league (one season per league and year,
+ * uk_week on (season_id, phase, week_number), week_number below 100), so the walk below
+ * visits weeks in one order and cannot choose silently.
+ *
+ * The walk takes the league's weeks 25 at a time, nearest first, and asks of each whether it
+ * holds any identity row, stopping at the first that does. Not one query with EXISTS: the
+ * optimiser materialises that subquery over the league's whole franchise_identities (about
+ * 15,000 NFLAR rows) on every call (EXPLAIN, 14 Oct 2026), which the fixture's 40,000 calls
+ * could not finish.
+ *
+ * Returns ['status' => 'ok', 'id' => int, 'from' => text]
+ *      or ['status' => 'refuse', 'why' => text]   -- the neighbours disagree, or a neighbour is
+ *                                                   ambiguous, or neither holds the name
+ *      or ['status' => 'latest']                  -- no later week holds rows and the earlier
+ *                                                   one lacks the name: the caller reads today's label
+ * Proved leave-one-week-out against all 20,556 identity rows, 14 Oct 2026: 20,556 right,
+ * none refused, none wrong (SESSION_20261014_2.md §8).
+ */
+function a4_resolve_from_neighbours($conn, $league_id, $week_id, $team_name) {
+    $ord = "(s.year * 1000 + CASE w.phase WHEN 'preseason' THEN 0 WHEN 'regular' THEN 100 ELSE 200 END + w.week_number)";
+
+    $stmt = $conn->prepare("SELECT $ord FROM weeks w JOIN seasons s ON s.season_id = w.season_id WHERE w.week_id = :week_id");
+    $stmt->execute([':week_id' => $week_id]);
+    $here = $stmt->fetchColumn();
+    if ($here === false) {
+        return ['status' => 'refuse', 'why' => "week $week_id was not found"];
+    }
+
+    $has = $conn->prepare(
+        "SELECT COUNT(*) FROM (SELECT 1 FROM franchise_identities fi JOIN franchises f ON f.franchise_id = fi.franchise_id
+                                WHERE fi.week_id = :week_id AND f.league_id = :league_id LIMIT 1) x"
+    );
+    $side = [];
+    foreach (['before' => ['<', 'DESC'], 'after' => ['>', 'ASC']] as $name => [$cmp, $dir]) {
+        $page = $conn->prepare(
+            "SELECT w.week_id, w.label, $ord AS o
+               FROM weeks w JOIN seasons s ON s.season_id = w.season_id
+              WHERE s.league_id = :league_id AND $ord $cmp :from
+              ORDER BY o $dir LIMIT 25"
+        );
+        $w = null; $from = $here;
+        while ($w === null) {
+            $page->execute([':league_id' => $league_id, ':from' => $from]);
+            $rows = $page->fetchAll(PDO::FETCH_ASSOC);
+            if (!$rows) { break; }
+            foreach ($rows as $row) {
+                $has->execute([':week_id' => $row['week_id'], ':league_id' => $league_id]);
+                if ((int)$has->fetchColumn() > 0) { $w = $row; break; }
+                $from = $row['o'];
+            }
+        }
+        if ($w === null) { $side[$name] = null; continue; }
+        $stmt = $conn->prepare(
+            "SELECT DISTINCT fi.franchise_id
+               FROM franchise_identities fi JOIN franchises f ON f.franchise_id = fi.franchise_id
+              WHERE f.league_id = :league_id AND fi.week_id = :week_id AND fi.team_name = :team_name"
+        );
+        $stmt->execute([':league_id' => $league_id, ':week_id' => $w['week_id'], ':team_name' => $team_name]);
+        $side[$name] = ['label' => $w['label'], 'ids' => $stmt->fetchAll(PDO::FETCH_COLUMN)];
+    }
+
+    foreach ($side as $name => $s) {
+        if ($s !== null && count($s['ids']) > 1) {
+            return ['status' => 'refuse', 'why' => "'$team_name' matches " . count($s['ids'])
+                  . " franchises in the week $name ({$s['label']})"];
+        }
+    }
+    $b = ($side['before'] !== null && count($side['before']['ids']) === 1) ? (int)$side['before']['ids'][0] : null;
+    $a = ($side['after']  !== null && count($side['after']['ids'])  === 1) ? (int)$side['after']['ids'][0]  : null;
+
+    if ($b !== null && $a !== null) {
+        if ($b === $a) {
+            return ['status' => 'ok', 'id' => $b,
+                    'from' => "the weeks before ({$side['before']['label']}) and after ({$side['after']['label']})"];
+        }
+        return ['status' => 'refuse', 'why' => "the week before ({$side['before']['label']}) says franchise $b "
+              . "and the week after ({$side['after']['label']}) says franchise $a"];
+    }
+    if ($b !== null) {
+        return ['status' => 'ok', 'id' => $b, 'from' => "the week before ({$side['before']['label']})"];
+    }
+    if ($a !== null) {
+        return ['status' => 'ok', 'id' => $a, 'from' => "the week after ({$side['after']['label']})"];
+    }
+    if ($side['after'] === null) {
+        return ['status' => 'latest'];
+    }
+    return ['status' => 'refuse', 'why' => "'$team_name' is in neither the week before ("
+          . ($side['before'] !== null ? $side['before']['label'] : 'none') . ") nor the week after ({$side['after']['label']})"];
 }
 }
 

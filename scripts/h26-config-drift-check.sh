@@ -1,11 +1,16 @@
 #!/bin/bash
-# h26-config-drift-check.sh -- rev 002 -- 3 Oct 2026 -- role: gate -- authority: derived
+# h26-config-drift-check.sh -- rev 003 -- 14 Oct 2026 -- role: gate -- authority: derived
+# rev 003 (item H55): LC_ALL=C for the whole script, so sort and comm order lines the same way, byte by byte.
+#   Under the rebuilt box's locale comm printed "not in sorted order" on sort's output (6 Oct 2026).
 # rev 002 (item H41): $dadabik_session_name added to the sanctioned list. The two hosts SHOULD use
 #   different session names (Alan, 3 Oct 2026); rev 001 failed on that difference.
 #
 # Proves config_custom.php.local and config_custom.php.server differ in ONLY the four
 # ways H26 sanctioned. Any other difference is a defect. Run before every deployment.
 # Prints a row whether it passes or fails -- a silent run is a run that did not happen.
+
+# sort and comm must collate alike; the byte order is the one that does not depend on the box
+export LC_ALL=C
 
 INC="${1:-/var/www/gpbm/public_html/dadabik/include}"
 LOCAL="$INC/config_custom.php.local"
