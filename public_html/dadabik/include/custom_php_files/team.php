@@ -66,6 +66,35 @@ function build_game_link($game_id) {
 include_once(__DIR__ . '/gp_league.php');
 [$_cp_league, $_cp_league_note] = gp_league_from_url();
 
+// H66 (16 Oct 2026): a logged-in coach opens on their own team. "The logged-in coach" is H51's rule
+// (coach.php): DaDaBIK's $current_user through zpbm_users to coaches.id_user, never the public
+// group (3). One login can hold several coach rows (AlanM: 2, 5, 160), so this reads every open
+// tenure (end_week_id IS NULL) across all of them: league code => lowest franchise_id. Logged out,
+// or a login with no coach row or no open tenure, leaves it empty and the page behaves as before.
+$_cp_my_open = [];
+if (($current_id_group ?? 3) != 3 && (string)($current_user ?? '') !== '') {
+    $_cp_stmt = $conn->prepare("SELECT l.code, MIN(fct.franchise_id) AS franchise_id
+                                FROM zpbm_users u
+                                JOIN coaches c ON c.id_user = u.id_user
+                                JOIN franchise_coach_tenures fct ON fct.coach_id = c.coach_id AND fct.end_week_id IS NULL
+                                JOIN franchises f ON f.franchise_id = fct.franchise_id
+                                JOIN leagues l ON l.league_id = f.league_id
+                                WHERE u.username_user = :u
+                                GROUP BY l.code");
+    $_cp_stmt->execute([':u' => (string)$current_user]);
+    foreach ($_cp_stmt->fetchAll(PDO::FETCH_ASSOC) as $_cp_row) {
+        $_cp_my_open[$_cp_row['code']] = (int)$_cp_row['franchise_id'];
+    }
+}
+// Q1 of 16 Oct 2026: with no league= in the address, a coach whose open teams are all in ONE served
+// league opens on that league; teams in both leagues, or none, keep the default (NFLAR). Not when
+// franchise= is given: that address is unchanged by H66 (its rule 1).
+$_cp_my_served = array_intersect_key($_cp_my_open, gp_leagues_served());
+if (!isset($_GET['league']) && !isset($_GET['franchise'])
+    && count($_cp_my_open) === 1 && count($_cp_my_served) === 1) {
+    $_cp_league = array_key_first($_cp_my_served);
+}
+
 // -------------------- League toggle --------------------
 function build_page_link($params) {
     $parsed = parse_url($_SERVER['REQUEST_URI']);
@@ -97,6 +126,12 @@ $_cp_stmt->execute();
 $_cp_franchise_list = $_cp_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $_cp_franchise_id = isset($_GET['franchise']) ? (int)$_GET['franchise'] : 0;
+// H66: no franchise= and the coach has an open team in the league shown: that team (it must be in this
+// league's list). Otherwise the first by label, as before.
+if (!$_cp_franchise_id && isset($_cp_my_open[$_cp_league])
+    && in_array($_cp_my_open[$_cp_league], array_map('intval', array_column($_cp_franchise_list, 'franchise_id')), true)) {
+    $_cp_franchise_id = $_cp_my_open[$_cp_league];
+}
 if (!$_cp_franchise_id && !empty($_cp_franchise_list)) {
     $_cp_franchise_id = (int)$_cp_franchise_list[0]['franchise_id'];
 }
