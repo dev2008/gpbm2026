@@ -670,16 +670,21 @@ function dadabik_process_raw_upload($upload_id) {
 // still worth keeping: week_number is now expected to be globally unique per season on its
 // own (0-21, no phase needed to disambiguate), but phase remains a useful, harmless
 // descriptive column, and no second schema migration is needed to remove it.
+//
+// H64, 17 Oct 2026: phase is not merely descriptive: dadabik_resolve_or_create_week() finds
+// the week by (season_id, phase, week_number), so the phase this function returns must be the
+// phase the stored row carries, or an upload creates a duplicate week. Football's play-off
+// weeks (NFLAR 17 to 20, NCAA5 12 to 13) are stored as 'postseason' from 17 Oct 2026 and this
+// function returns 'postseason' for them from the same change (RUNBOOK_h64_20261017).
 function dadabik_identify_upload($raw_text, $turn_number) {
     $league_code = null;
     $season_year = null;
     $week_number = null;
-    $phase = 'regular'; // overwritten to 'preseason' or 'postseason' below when matched;
-                         // football's two existing shapes only ever produce 'preseason' or
-                         // this default -- neither currently signals a postseason/playoff
-                         // week explicitly (see conversation). If one turns up, it needs its
-                         // own case added the same way baseball's was below, not silently
-                         // miscategorized as 'regular'.
+    $phase = 'regular'; // overwritten to 'preseason' or 'postseason' below when matched.
+                         // H64, 17 Oct 2026: football's play-off weeks now say 'postseason' too
+                         // (see the football branch). Until then every numbered football week
+                         // was filed as 'regular', the comment here saying the header carried no
+                         // signal; it does, twice (see below), and this never read it.
 
     if (preg_match(
         '/GAMEPLAN\s+BASEBALL\s+(\w+)\s+.*?Season\s+(\d+)\s+(?:(Preseason)|(?:(Playoff)\s+)?Week\s+(\d+))/s',
@@ -720,8 +725,21 @@ function dadabik_identify_upload($raw_text, $turn_number) {
         // checked, which all used "Pre Season" (space). Since the two headers aren't guaranteed
         // to agree on which form they use, matching only one risked silently failing
         // identification on real uploads exactly like this one.
-        if (preg_match('/Week\s+(\d+)\s+of\s+\d+/', $raw_text, $m)) {
+        if (preg_match('/Week\s+(\d+)\s+of\s+(\d+)/', $raw_text, $m)) {
             $week_number = (int)$m[1];
+            // H64, 17 Oct 2026: the League Report header counts the regular season ("Week 19 of 16",
+            // "Week 12 of 11"), so a week number above the "of" figure is a play-off week; the Team
+            // Report header of the same turns says "Season NNNN   Playoff" where a regular turn says
+            // "Week N". weeks.phase is the league calendar's phase for the turn (schema.md s23); what
+            // each GAME is stays game_types.phase, because an NFLAR play-off week also holds the
+            // eliminated franchises' pre-season games (Alan, Q4 of 17 Oct 2026). The rule was measured
+            // on every football upload held on 17 Oct 2026 (54): N > M in each play-off-window turn,
+            // including one with no Team Report block, and in no other. Tested here, before the
+            // Pre-Season test below, so a play-off turn whose League Report also prints a "Pre-Season"
+            // section (it does) is never filed as week 0.
+            if ((int)$m[1] > (int)$m[2]) {
+                $phase = 'postseason';
+            }
         } elseif (preg_match('/Pre[\s-]Season/', $raw_text)) {
             $week_number = 0;
             $phase = 'preseason';
