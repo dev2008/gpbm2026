@@ -905,8 +905,13 @@ function clean_result_and_score($raw_result) {
 // independent ways against real plays (down/distance progression, field-position delta) --
 // see file header and conversation.
 function extract_yards_gained($cleaned_result, $raw_result) {
-    // Match against the raw (pre-cleaned) text so <Z>/<T>/<L> markers don't interfere with
-    // "at"/"for" positioning, though the phrase content itself is unaffected by cleaning.
+    // Match against the CLEANED text (P4, 20 Oct 2026). Some turn files are hard-wrapped at
+    // about 80 columns, so the raw text can break a phrase across a line end ("for gain of
+    // \r\n12 yards") and the single-space match below misses it: NULL, or only the second
+    // segment of a two-part play. clean_result_and_score() removes the <Z>/<L> markers and
+    // collapses every run of whitespace to one space, so the cleaned text is the whole phrase.
+    // Measured: on the 6,184 plays from unwrapped files the cleaned match changes nothing.
+    // $raw_result stays in the signature; it is no longer read here.
     // "no gain" (e.g. "HB run for no gain", "pass dumped off to RB at no gain, and run for
     // gain of 3 yards") is a genuinely different phrasing from "gain/loss of N yards" -- no
     // "of"/"yards" at all -- confirmed directly against real text, not assumed. Missing this
@@ -914,7 +919,7 @@ function extract_yards_gained($cleaned_result, $raw_result) {
     // found at all) rather than the known value 0, and a compound play with both an "at no
     // gain" position marker and a later "for gain of N" increment silently dropped the first
     // segment, only getting the right final total by coincidence in the one case checked.
-    preg_match_all('/(at|for) (?:(gain|loss) of ([\w-]+) yards?|(no) gain)/i', $raw_result, $matches, PREG_SET_ORDER);
+    preg_match_all('/(at|for) (?:(gain|loss) of ([\w-]+) yards?|(no) gain)/i', $cleaned_result, $matches, PREG_SET_ORDER);
     if (empty($matches)) {
         return null;
     }
