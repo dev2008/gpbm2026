@@ -608,9 +608,9 @@ do {
     // not just this one column; adding id_user to the UPDATE list here would be the odd one out).
     $_cp_game_upsert = $conn->prepare(
         "INSERT INTO games (label, week_id, game_type_id, home_franchise_id, away_franchise_id,
-             home_score, away_score, went_to_ot, source_upload_id, id_user)
+             home_score, away_score, went_to_ot, neutral_site, source_upload_id, id_user)
          VALUES (:label, :week_id, :game_type_id, :home_franchise_id, :away_franchise_id,
-             :home_score, :away_score, :went_to_ot, :upload_id, :id_user)
+             :home_score, :away_score, :went_to_ot, :neutral_site, :upload_id, :id_user)
          ON DUPLICATE KEY UPDATE game_id = game_id"
     );
 
@@ -749,6 +749,7 @@ do {
             ':home_franchise_id' => $home_id, ':away_franchise_id' => $away_id,
             ':home_score' => $game['home']['score'], ':away_score' => $game['away']['score'],
             ':went_to_ot' => ($game['home']['ot'] !== null) ? 1 : 0,
+            ':neutral_site' => game_is_neutral_site($conn, $game_type_id, $_cp_week_number),
             ':upload_id' => $_cp_upload_id, ':id_user' => $_cp_upload_owner,
         ]);
 
@@ -1262,5 +1263,19 @@ function lookup_game_type($conn, $league_code, $name) {
     // earlier in operational_hooks.php -- should have been more alert to this exact pattern
     // recurring, given it had already been learned once.
     return $result !== false ? (int)$result : null;
+}
+
+// P15 (21 Oct 2026): the turn file never says a game is at a neutral site -- the engine always
+// names a home team -- so neutrality is a league rule by game type, held in
+// game_types.neutral_from_week (schema.md s28): NULL never neutral; otherwise neutral from that
+// week number on, 0 for every week. Superbowl and the NCAA5 postseason are 0; NFLAR's four minor
+// bowls are 20, their finals only (Alan, Q1 of 21 Oct 2026). Returns 1 or 0 for games.neutral_site.
+function game_is_neutral_site($conn, $game_type_id, $week_number) {
+    $stmt = $conn->prepare("SELECT neutral_from_week FROM game_types WHERE game_type_id = :id");
+    $stmt->execute([':id' => $game_type_id]);
+    $from = $stmt->fetchColumn();
+    // false: no such type; NULL: never neutral. 0 is a real answer here too (every week).
+    if ($from === false || $from === null) { return 0; }
+    return ((int)$week_number >= (int)$from) ? 1 : 0;
 }
 ?>
