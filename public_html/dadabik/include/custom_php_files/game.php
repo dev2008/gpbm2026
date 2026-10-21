@@ -15,6 +15,8 @@ if(!defined('custom_page_from_inclusion')) { die(); }
 include_once(__DIR__ . '/gp_identity.php');
 // P16 (21 Oct 2026): the one rule for showing a game's type, and its switch GP_GAME_TYPE_SHOW_REGULAR.
 include_once(__DIR__ . '/gp_game_type.php');
+// P17 (21 Oct 2026): a neutral game's site, and its switch GP_VENUE_SHOW_NEUTRAL.
+include_once(__DIR__ . '/gp_venue.php');
 
 // ------------------------------------------------------------------
 // Game Detail -- single-game page: final score, quarter-by-quarter line,
@@ -85,6 +87,7 @@ if (!$_cp_game_id) {
 // shape does not change when a toggle changes.
 $_cp_sql = "SELECT g.game_id, g.label, g.home_score, g.away_score, g.went_to_ot, g.neutral_site,
                    gt.game_type_id, gt.name AS game_type_name, gt.phase, hf.conference AS home_conference,
+                   " . gp_venue_select() . ",
                    w.week_id, w.week_number, w.label AS week_label,
                    s.season_id, s.year AS season_year, s.label AS season_label,
                    l.code AS league_code, l.name AS league_name,
@@ -96,6 +99,7 @@ $_cp_sql = "SELECT g.game_id, g.label, g.home_score, g.away_score, g.went_to_ot,
             JOIN seasons s ON s.season_id = w.season_id
             JOIN leagues l ON l.league_id = s.league_id
             JOIN game_types gt ON gt.game_type_id = g.game_type_id
+            " . gp_venue_join('g', 'gt') . "
             JOIN franchises hf ON hf.franchise_id = g.home_franchise_id
             JOIN franchises af ON af.franchise_id = g.away_franchise_id
             " . gp_ident_join('hi', 'g.home_franchise_id', 'g.week_id') . "
@@ -160,8 +164,10 @@ if (strncmp($_cp_week_raw, $_cp_season_raw . ' ', strlen($_cp_season_raw) + 1) !
     $_cp_subtitle_parts[] = htmlspecialchars($_cp_season_raw);
 }
 $_cp_subtitle_parts[] = htmlspecialchars($_cp_week_raw);
+// P17: the site where one is set (gp_venue.php), else "Neutral Site" as before.
 if ($_cp_game['neutral_site']) {
-    $_cp_subtitle_parts[] = "Neutral Site";
+    $_cp_site = gp_venue_label($_cp_game, ' (neutral site)');
+    $_cp_subtitle_parts[] = $_cp_site !== '' ? htmlspecialchars($_cp_site) : "Neutral Site";
 }
 if ($_cp_game['went_to_ot']) {
     $_cp_subtitle_parts[] = "Overtime";

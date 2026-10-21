@@ -11,6 +11,8 @@ if(!defined('custom_page_from_inclusion')) { die(); }
 include_once(__DIR__ . '/gp_identity.php');
 // P16 (21 Oct 2026): the one rule for showing a game's type, and its switch GP_GAME_TYPE_SHOW_REGULAR.
 include_once(__DIR__ . '/gp_game_type.php');
+// P17 (21 Oct 2026): a neutral game's site, and its switch GP_VENUE_SHOW_NEUTRAL.
+include_once(__DIR__ . '/gp_venue.php');
 
 // Uses w3-theme-* throughout, matching home.php -- see there for the full reasoning on why
 // every colored element needs BOTH an explicit background AND explicit text colour, never
@@ -395,12 +397,14 @@ JS;
     $_cp_sql = "SELECT g.game_id, w.week_number, g.home_franchise_id, g.away_franchise_id, g.home_score,
                        g.away_score, g.neutral_site,
                        gt.game_type_id, gt.name AS game_type_name, gt.phase, hf.conference AS home_conference,
+                       " . gp_venue_select() . ",
                        hf.label AS home_label, af.label AS away_label,
                        hi.team_name AS home_ident, ai.team_name AS away_ident,
                        htgs.coach_name AS home_coach, atgs.coach_name AS away_coach
                 FROM games g
                 JOIN weeks w ON w.week_id = g.week_id
                 JOIN game_types gt ON gt.game_type_id = g.game_type_id
+                " . gp_venue_join('g', 'gt') . "
                 JOIN franchises hf ON hf.franchise_id = g.home_franchise_id
                 JOIN franchises af ON af.franchise_id = g.away_franchise_id
                 " . gp_ident_join('hi', 'g.home_franchise_id', 'g.week_id') . "
@@ -446,7 +450,9 @@ JS;
             // team as its own opponent (falling back to home_label on the specific weeks this
             // franchise actually was the home team).
             $_cp_is_home = ((int)$g['home_franchise_id'] === (int)$_cp_franchise_id);
-            $venue = $g['neutral_site'] ? 'Neutral' : ($_cp_is_home ? 'Home' : 'Road');
+            // P17: a neutral game names its site where one is set (gp_venue.php), else "Neutral" as before.
+            $_cp_site = gp_venue_label($g, ' (neutral)');
+            $venue = $g['neutral_site'] ? ($_cp_site !== '' ? htmlspecialchars($_cp_site) : 'Neutral') : ($_cp_is_home ? 'Home' : 'Road');
             $my_score = $_cp_is_home ? $g['home_score'] : $g['away_score'];
             $opp_score = $_cp_is_home ? $g['away_score'] : $g['home_score'];
             // A5: the opponent named as they were THAT week, not as that slot is called today.

@@ -10,6 +10,8 @@ if(!defined('custom_page_from_inclusion')) { die(); }
 include_once(__DIR__ . '/gp_identity.php');
 // P16 (21 Oct 2026): the one rule for showing a game's type, and its switch GP_GAME_TYPE_SHOW_REGULAR.
 include_once(__DIR__ . '/gp_game_type.php');
+// P17 (21 Oct 2026): a neutral game's site, and its switch GP_VENUE_SHOW_NEUTRAL.
+include_once(__DIR__ . '/gp_venue.php');
 // H56 (8-Oct-2026, replay r001): Alan's five Live Replay issues from the NCAA5 2039 Wk 8 game.
 // (1) the sub-title printed the season twice: weeks.label already carries the season ("NCAA5 2039
 // Wk 8", every one of the 1,094 rows measured 8 Oct 2026), so the season label is printed only when
@@ -89,9 +91,11 @@ if (!$_cp_game_id) {
     exit;
 }
 
-// Deliberately NOT selecting home_score/away_score/went_to_ot/neutral_site -- see file header.
+// Deliberately NOT selecting home_score/away_score/went_to_ot -- see file header. P17 (21 Oct 2026, Q16): neutral_site
+// and the venue ARE selected now: where a game is played gives nothing of its result away.
 $_cp_sql = "SELECT g.label, g.week_id, w.week_number, w.label AS week_label, s.year AS season_year,
                    s.label AS season_label, l.code AS league_code, gt.game_type_id, gt.name AS game_type_name, gt.phase, hf.conference AS home_conference,
+                   g.neutral_site, " . gp_venue_select() . ",
                    hf.label AS home_label, af.label AS away_label,
                    hi.team_name AS home_ident, ai.team_name AS away_ident
             FROM games g
@@ -99,6 +103,7 @@ $_cp_sql = "SELECT g.label, g.week_id, w.week_number, w.label AS week_label, s.y
             JOIN seasons s ON s.season_id = w.season_id
             JOIN leagues l ON l.league_id = s.league_id
             JOIN game_types gt ON gt.game_type_id = g.game_type_id
+            " . gp_venue_join('g', 'gt') . "
             JOIN franchises hf ON hf.franchise_id = g.home_franchise_id
             JOIN franchises af ON af.franchise_id = g.away_franchise_id
             " . gp_ident_join('hi', 'g.home_franchise_id', 'g.week_id') . "
@@ -137,6 +142,11 @@ if (strncmp($_cp_week_raw, $_cp_season_raw . ' ', strlen($_cp_season_raw) + 1) =
 $_cp_type = gp_game_type_label($_cp_game);
 if ($_cp_type !== '') {
     $_cp_subtitle = "<strong>" . htmlspecialchars($_cp_type) . "</strong> &middot; " . $_cp_subtitle;
+}
+// P17 (Q15, Q16 of 21 Oct 2026): a neutral game's site ends the subtitle, as on game.php.
+$_cp_site = gp_venue_label($_cp_game, ' (neutral site)');
+if ($_cp_site !== '') {
+    $_cp_subtitle .= " &middot; " . htmlspecialchars($_cp_site);
 }
 echo "<p class='w3-text-white'>$_cp_subtitle</p>";
 echo "</div>";
