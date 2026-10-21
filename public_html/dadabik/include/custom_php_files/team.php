@@ -9,6 +9,8 @@ if(!defined('custom_page_from_inclusion')) { die(); }
 // A5 (17-Aug-2026): week-grain identity resolution + the internal display toggles. The one that
 // matters on this page is GP_IDENT_OPPONENT -- see gp_identity.php.
 include_once(__DIR__ . '/gp_identity.php');
+// P16 (21 Oct 2026): the one rule for showing a game's type, and its switch GP_GAME_TYPE_SHOW_REGULAR.
+include_once(__DIR__ . '/gp_game_type.php');
 
 // Uses w3-theme-* throughout, matching home.php -- see there for the full reasoning on why
 // every colored element needs BOTH an explicit background AND explicit text colour, never
@@ -392,11 +394,13 @@ JS;
     // needs no change to this query.
     $_cp_sql = "SELECT g.game_id, w.week_number, g.home_franchise_id, g.away_franchise_id, g.home_score,
                        g.away_score, g.neutral_site,
+                       gt.game_type_id, gt.name AS game_type_name, gt.phase, hf.conference AS home_conference,
                        hf.label AS home_label, af.label AS away_label,
                        hi.team_name AS home_ident, ai.team_name AS away_ident,
                        htgs.coach_name AS home_coach, atgs.coach_name AS away_coach
                 FROM games g
                 JOIN weeks w ON w.week_id = g.week_id
+                JOIN game_types gt ON gt.game_type_id = g.game_type_id
                 JOIN franchises hf ON hf.franchise_id = g.home_franchise_id
                 JOIN franchises af ON af.franchise_id = g.away_franchise_id
                 " . gp_ident_join('hi', 'g.home_franchise_id', 'g.week_id') . "
@@ -421,8 +425,14 @@ JS;
         echo "<p><em>No individual game log available for this season &mdash; only the "
            . "season-end record shown in Season by Season Records below.</em></p>";
     } else {
-        echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:55%;min-width:480px'>";
-        echo "<tr><th>Week</th><th>Venue</th><th>Opponent</th><th>Score</th><th>Result</th></tr>";
+        // P16 (Alan, V3 of 21 Oct 2026: "the table does not use enough of the screen"): as wide as its
+        // content, no cell wrapping, scrolling sideways on a narrow window (current_standings.php's H40 shape),
+        // instead of width:55%, which wrapped the type and the opponent onto two lines.
+        echo "<div style='overflow-x:auto;margin-bottom:16px'>";
+        echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:auto;white-space:nowrap'>";
+        // P16 (Q1 of 21 Oct 2026): Type, between Week and Venue, by gp_game_type_label() (gp_game_type.php):
+        // blank for a regular-season game unless GP_GAME_TYPE_SHOW_REGULAR is true.
+        echo "<tr><th>Week</th><th>Type</th><th>Venue</th><th>Opponent</th><th>Score</th><th>Result</th></tr>";
 
         foreach ($_cp_games as $g) {
             // Explicit (int) cast on BOTH sides, not just the left -- $_cp_franchise_id was
@@ -452,10 +462,11 @@ JS;
             // for the full box score, quarter-by-quarter, play-by-play and drive summary.
             $score_link = build_game_link($g['game_id']);
             $score_display = "<a href='$score_link' style='text-decoration:underline'>$my_score-$opp_score</a>";
-            echo "<tr><td>{$g['week_number']}</td><td>$venue</td><td>$opp_display</td>"
+            $type_display = htmlspecialchars(gp_game_type_label($g));
+            echo "<tr><td>{$g['week_number']}</td><td>$type_display</td><td>$venue</td><td>$opp_display</td>"
                . "<td>$score_display</td><td>$result</td></tr>";
         }
-        echo "</table><br>";
+        echo "</table></div>";
     }
 }
 

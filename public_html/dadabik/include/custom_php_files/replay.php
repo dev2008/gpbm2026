@@ -8,6 +8,8 @@ if(!defined('custom_page_from_inclusion')) { die(); }
 // shared include the header above says would be worth introducing "if this logic ever needs to
 // change in both places" -- it now needs to change in four, so here it is.
 include_once(__DIR__ . '/gp_identity.php');
+// P16 (21 Oct 2026): the one rule for showing a game's type, and its switch GP_GAME_TYPE_SHOW_REGULAR.
+include_once(__DIR__ . '/gp_game_type.php');
 // H56 (8-Oct-2026, replay r001): Alan's five Live Replay issues from the NCAA5 2039 Wk 8 game.
 // (1) the sub-title printed the season twice: weeks.label already carries the season ("NCAA5 2039
 // Wk 8", every one of the 1,094 rows measured 8 Oct 2026), so the season label is printed only when
@@ -89,7 +91,7 @@ if (!$_cp_game_id) {
 
 // Deliberately NOT selecting home_score/away_score/went_to_ot/neutral_site -- see file header.
 $_cp_sql = "SELECT g.label, g.week_id, w.week_number, w.label AS week_label, s.year AS season_year,
-                   s.label AS season_label, l.code AS league_code, gt.name AS game_type_name,
+                   s.label AS season_label, l.code AS league_code, gt.game_type_id, gt.name AS game_type_name, gt.phase, hf.conference AS home_conference,
                    hf.label AS home_label, af.label AS away_label,
                    hi.team_name AS home_ident, ai.team_name AS away_ident
             FROM games g
@@ -130,6 +132,11 @@ if (strncmp($_cp_week_raw, $_cp_season_raw . ' ', strlen($_cp_season_raw) + 1) =
     $_cp_subtitle = htmlspecialchars($_cp_week_raw);
 } else {
     $_cp_subtitle = htmlspecialchars($_cp_season_raw) . ' &middot; ' . htmlspecialchars($_cp_week_raw);
+}
+// P16 (Q2 of 21 Oct 2026): the game's type leads the subtitle, as on game.php. It does not give the score away.
+$_cp_type = gp_game_type_label($_cp_game);
+if ($_cp_type !== '') {
+    $_cp_subtitle = "<strong>" . htmlspecialchars($_cp_type) . "</strong> &middot; " . $_cp_subtitle;
 }
 echo "<p class='w3-text-white'>$_cp_subtitle</p>";
 echo "</div>";

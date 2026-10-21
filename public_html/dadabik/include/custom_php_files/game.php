@@ -13,6 +13,8 @@ if(!defined('custom_page_from_inclusion')) { die(); }
 // dependency -- see gp_identity.php's header for why it is not
 // guarded and why the resolution does not go through franchises.label any more.
 include_once(__DIR__ . '/gp_identity.php');
+// P16 (21 Oct 2026): the one rule for showing a game's type, and its switch GP_GAME_TYPE_SHOW_REGULAR.
+include_once(__DIR__ . '/gp_game_type.php');
 
 // ------------------------------------------------------------------
 // Game Detail -- single-game page: final score, quarter-by-quarter line,
@@ -82,7 +84,7 @@ if (!$_cp_game_id) {
 // selected -- the toggles in gp_identity.php choose between them at render time, so the query
 // shape does not change when a toggle changes.
 $_cp_sql = "SELECT g.game_id, g.label, g.home_score, g.away_score, g.went_to_ot, g.neutral_site,
-                   gt.name AS game_type_name, gt.phase,
+                   gt.game_type_id, gt.name AS game_type_name, gt.phase, hf.conference AS home_conference,
                    w.week_id, w.week_number, w.label AS week_label,
                    s.season_id, s.year AS season_year, s.label AS season_label,
                    l.code AS league_code, l.name AS league_name,
@@ -146,8 +148,10 @@ echo "<div class='w3-panel w3-theme'>";
 echo "<h1 class='w3-text-white' style='text-shadow:1px 1px 0 #444'><b>$_cp_title</b></h1>";
 
 $_cp_subtitle_parts = [];
-if ($_cp_game['game_type_name'] && $_cp_game['phase'] !== 'regular') {
-    $_cp_subtitle_parts[] = "<strong>" . htmlspecialchars($_cp_game['game_type_name']) . "</strong>";
+// P16: the rule is gp_game_type_label() (gp_game_type.php), shared with team.php and replay.php.
+$_cp_type = gp_game_type_label($_cp_game);
+if ($_cp_type !== '') {
+    $_cp_subtitle_parts[] = "<strong>" . htmlspecialchars($_cp_type) . "</strong>";
 }
 $_cp_season_raw = $_cp_game['season_label'] ?: ($_cp_game['league_code'] . ' ' . $_cp_game['season_year']);
 $_cp_week_raw = $_cp_game['week_label'] ?: ('Week ' . $_cp_game['week_number']);
