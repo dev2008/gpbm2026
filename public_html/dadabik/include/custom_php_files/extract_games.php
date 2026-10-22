@@ -711,6 +711,15 @@ do {
     }
 
     // -------------------- pass 2: resolve at week grain, then upsert --------------------
+    // H70 guard (Alan, Q2 of 22 Oct 2026): uk_game is (week, home, away), so it cannot see the same
+    // two teams stored the other way round. Before H70 every uploaded game was stored reversed; a
+    // re-run of such a week with the corrected parser would have inserted a second row for each
+    // game beside the old one. A game whose two teams are already stored this week with home and
+    // away swapped is never written: it is listed in the red panel below instead.
+    $_cp_reversed_stmt = $conn->prepare(
+        "SELECT game_id FROM games WHERE week_id = :week_id AND home_franchise_id = :away_id AND away_franchise_id = :home_id"
+    );
+    $_cp_reversed = [];
     foreach ($_cp_games as $game) {
         $game_type_id = resolve_game_type_id($conn, $_cp_league_code, $_cp_week_number, $game['section_header']);
         // Explicit === null, not a plain falsy check (!$game_type_id) -- the SAME bug just fixed
@@ -737,6 +746,14 @@ do {
         if (!$home_id) { $_cp_unresolved_teams[] = $game['home_team']; }
         if (!$away_id) { $_cp_unresolved_teams[] = $game['away_team']; }
         if (!$home_id || !$away_id) { continue; }
+
+        $_cp_reversed_stmt->execute([':week_id' => $_cp_week_id, ':away_id' => $away_id, ':home_id' => $home_id]);
+        $_cp_reversed_id = $_cp_reversed_stmt->fetchColumn();
+        if ($_cp_reversed_id !== false) {
+            $_cp_reversed[] = "{$game['away_team']} at {$game['home_team']}: game $_cp_reversed_id is stored with "
+                            . "{$game['away_team']} as the home team";
+            continue;
+        }
 
         // In-league season, NOT date('Y'). The calendar year has never matched the
         // in-league season -- see the note where $_cp_season_year is resolved. Using
@@ -845,6 +862,13 @@ do {
         foreach (array_unique($_cp_unresolved_teams) as $name) { echo "<li>" . htmlspecialchars($name) . "</li>"; }
         echo "</ul></div>";
     }
+    if ($_cp_reversed) {
+        echo "<div class='w3-panel w3-pale-red w3-text-black w3-round-large'>";
+        echo "<p><strong>" . count($_cp_reversed) . "</strong> game(s) NOT written: already stored this week with home "
+           . "and away the other way round (H70). Nothing was changed for them:</p><ul>";
+        foreach ($_cp_reversed as $line) { echo "<li>" . htmlspecialchars($line) . "</li>"; }
+        echo "</ul></div>";
+    }
     if ($_cp_unresolved_types) {
         echo "<div class='w3-panel w3-pale-red w3-text-black w3-round-large'>";
         echo "<p><strong>" . count($_cp_unresolved_types) . "</strong> section header(s) could not be mapped to a game type:</p><ul>";
@@ -919,7 +943,8 @@ echo "</form><br>";
 // only PARTLY written (games skipped for an unmapped type or team) could never be offered again.
 // Re-running is safe by construction: games are written ON DUPLICATE KEY UPDATE game_id =
 // game_id against uk_game (week, home, away), so a game already stored is left as it is and
-// only the missing ones are added; team_game_stats refreshes on uk_team_game (game, franchise)
+// only the missing ones are added (H70: and a game stored with home and away the other way round
+// is refused, not added); team_game_stats refreshes on uk_team_game (game, franchise)
 // with the same values from the same League Report; franchise_identities and
 // franchise_season_records are refreshed as on any run.
 $_cp_stmt = $conn->prepare(
@@ -1048,19 +1073,27 @@ function parse_league_report_games($text) {
 
         $g = array_map(fn($x) => $x[0], $m); // strip offsets, keep plain values
 
+        // H70 (22 Oct 2026): the League Report names the VISITOR first. Gameplan's convention is
+        // "A at B" with B at home (Alan, Q12 of 21 Oct 2026), and the League Report lists each game
+        // in that order: its next-week schedules read "A at B" and the results then list A first
+        // (257 of 257 uploaded games checked by text, SESSION_20261022_1.md s2a). Until H70 the
+        // first-named team was stored as home, so every uploaded game had home and away reversed.
+        // The second-named team ($g[5], stats side 1) is the home team.
         $games[] = [
             'section_header' => $current_header,
-            'home_team' => trim($g[1]),
-            'away_team' => trim($g[5]),
-            'home' => build_team_stats($g, 0),
-            'away' => build_team_stats($g, 1),
+            'home_team' => trim($g[5]),
+            'away_team' => trim($g[1]),
+            'home' => build_team_stats($g, 1),
+            'away' => build_team_stats($g, 0),
         ];
     }
 
     return $games;
 }
 
-// Builds one team's full stat array from the 100 capture groups, given side (0=home, 1=away).
+// Builds one team's full stat array from the 100 capture groups, given side: 0 = the first-named
+// team (the visitor), 1 = the second-named team (the home team; H70). "home"/"away" in the
+// comments below mean first-named/second-named, as written before H70.
 // Group indices verified directly against real match output before this was written, not
 // assumed from the pattern alone -- see conversation.
 function build_team_stats($g, $side) {
