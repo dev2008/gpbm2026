@@ -1,7 +1,9 @@
 <?php
-// bb_roster_parser.php · rev 001 · 22 Oct 2026 · role: helper, included by extract_baseball_roster.php and the runner's CLI
+// bb_roster_parser.php · rev 002 · 22 Oct 2026 · role: helper, included by extract_baseball_roster.php and the runner's CLI
 //                       (scripts/gpbm_b2_roster_cli.php) · authority: B2 (Alan, Q2 to Q7 of 22 Oct 2026 session2;
 //                       GameplanPBM/20261022/session2/SESSION_20261022_2.md s2, s3)
+// rev 002: H74 (Alan, Q11 of 22 Oct 2026 session2, and "Let's write Week in full please"): the label reads
+//          "MLB21 Season 35 Week 21 PH", not "MLB21 35 Wk 21 PH". Nothing else changed.
 // rev 001: first issue.
 //
 // ------------------------------------------------------------------
@@ -138,7 +140,7 @@ if (!function_exists('bb_roster_write')) {
  * Writes one upload's Team Report into bb_roster_entries (Q3: the week's snapshot for that team), or with $dry only
  * counts what it would do. Runs inside the caller's transaction when there is one, else in its own.
  * Returns ['ok' => bool, 'errors' => [...], 'parsed' => n, 'inserted' => n, 'updated' => n, 'unchanged' => n,
- *          'deleted' => n, 'week_id' => n, 'franchise_id' => n, 'label' => 'MLB21 35 Wk 21 PH'].
+ *          'deleted' => n, 'week_id' => n, 'franchise_id' => n, 'label' => 'MLB21 Season 35 Week 21 PH'].
  */
 function bb_roster_write(PDO $conn, int $uploadId, bool $dry): array {
     $r = ['ok' => false, 'errors' => [], 'parsed' => 0, 'inserted' => 0, 'updated' => 0, 'unchanged' => 0, 'deleted' => 0,
@@ -155,7 +157,7 @@ function bb_roster_write(PDO $conn, int $uploadId, bool $dry): array {
     $st->execute([':u' => $uploadId]);
     $u = $st->fetch(PDO::FETCH_ASSOC);
     if (!$u) { $r['errors'][] = 'no such upload, or it has no league, week or team'; return $r; }
-    $r['label'] = "{$u['code']} {$u['year']} Wk {$u['week_number']} {$u['abbr']}";
+    $r['label'] = "{$u['code']} Season {$u['year']} Week {$u['week_number']} {$u['abbr']}";
     if (strpos($u['code'], 'MLB') !== 0) { $r['errors'][] = "{$u['code']} is not a baseball league"; return $r; }
     if ((int)$u['f_league'] !== (int)$u['league_id']) { $r['errors'][] = "the upload's team is not in its league"; return $r; }
     if ((int)$u['s_league'] !== (int)$u['league_id']) { $r['errors'][] = "the upload's week is not in its league"; return $r; }

@@ -1,7 +1,11 @@
 <?php
 // don't delete this line, this must be the first line of your code
 if(!defined('custom_page_from_inclusion')) { die(); }
-// extract_baseball_roster.php · rev 002 · 22 Oct 2026 · role: page (administrator only, on both hosts) · authority: derived
+// extract_baseball_roster.php · rev 003 · 22 Oct 2026 · role: page (administrator only, on both hosts) · authority: derived
+// rev 003: H74 (Alan, Q11 of 22 Oct 2026 session2; V17a and V35a, and "Let's write Week in full please"): both tables in the
+//          style guide's shape (s1: its class list, cells padded 4px 8px; s2: links styled), each in a wrapper that scrolls
+//          sideways and keeps a margin below it, so a table no longer runs to the panel's rounded edge; "Season" and "Week"
+//          written in full in the heading and the list. Nothing else changed.
 // rev 002: writes on whichever host it runs on, like Extract Games (Alan, Q8 and NZ2 of 22 Oct 2026 session2: "Any
 //          administrator needs to be able to carry out any action on prod"). Rev 001 wrote only where GPBM_ENV was dev.
 // rev 001: first issue (never deployed).
@@ -37,6 +41,10 @@ if ($_br_has_session && empty($_SESSION['gp_br_token'])) {
 }
 $_br_h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES);
 $_br_page = (string)($_GET['id_static_page'] ?? '');
+// style-guide.md s1 and s2: the table class list, padded cells, links that look like links
+$_br_tbl = "<div style='overflow-x:auto;margin-bottom:16px'><table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black w3-small' style='width:auto;min-width:480px'>";
+$_br_td = fn($v, $tag = 'td') => "<$tag style='padding:4px 8px'>$v</$tag>";
+$_br_a = fn($href, $text) => "<a href='$href' style='color:inherit;text-decoration:underline'>$text</a>";
 $_br_url = function (array $q) use ($_br_page) {
     return 'index.php?' . http_build_query(['function' => 'show_static_page', 'id_static_page' => $_br_page] + $q);
 };
@@ -79,20 +87,19 @@ $_br_ups = $conn->query(
      ORDER BY l.code, s.year, w.week_number, f.abbr, r.upload_id")->fetchAll(PDO::FETCH_ASSOC);
 if (!$_br_ups) { echo "<p>No baseball upload holds a Team Report.</p></div>"; return; }
 
-echo "<table class='w3-table w3-bordered w3-small' style='background:#fff;color:#000'>";
-echo "<tr><th>Upload</th><th>League</th><th>Season</th><th>Wk</th><th>Team</th><th>File</th><th>Rows stored</th><th></th></tr>";
+echo $_br_tbl . '<tr>' . implode('', array_map(fn($h) => $_br_td($h, 'th'), ['Upload', 'League', 'Season', 'Week', 'Team', 'File', 'Rows stored', ''])) . '</tr>';
 foreach ($_br_ups as $u) {
     $id = (int)$u['upload_id'];
     $stored = (int)$u['stored'] === 0 ? 'none' : (int)$u['stored'] . ((int)$u['from_this'] === (int)$u['stored'] ? '' : ' (another upload)');
-    $act = "<a href='" . $_br_h($_br_url(['upload' => $id])) . "'>Show</a>";
+    $act = $_br_a($_br_h($_br_url(['upload' => $id])), 'Show');
     if ($_br_has_session) {
-        $act .= " · <a href='" . $_br_h($_br_url(['upload' => $id, 'extract' => 1, 'token' => $_SESSION['gp_br_token']])) . "'>Extract</a>";
+        $act .= ' · ' . $_br_a($_br_h($_br_url(['upload' => $id, 'extract' => 1, 'token' => $_SESSION['gp_br_token']])), 'Extract');
     }
     $mark = ($id === $_br_show) ? " style='font-weight:bold'" : '';
-    echo "<tr$mark><td>$id</td><td>" . $_br_h($u['code']) . "</td><td>" . (int)$u['year'] . "</td><td>" . (int)$u['week_number']
-       . "</td><td>" . $_br_h($u['abbr']) . "</td><td>" . $_br_h($u['original_filename']) . "</td><td>$stored</td><td>$act</td></tr>";
+    echo "<tr$mark>" . implode('', array_map($_br_td, [$id, $_br_h($u['code']), (int)$u['year'], (int)$u['week_number'], $_br_h($u['abbr']),
+        $_br_h($u['original_filename']), $stored, $act])) . '</tr>';
 }
-echo "</table>";
+echo '</table></div>';
 
 // ---------------- one roster, as stored ----------------
 $_br_sel = null;
@@ -101,24 +108,24 @@ if ($_br_sel !== null) {
     $st = $conn->prepare("SELECT * FROM bb_roster_entries WHERE week_id = :w AND franchise_id = :f ORDER BY report_order");
     $st->execute([':w' => (int)$_br_sel['week_id'], ':f' => (int)$_br_sel['franchise_id']]);
     $rows = $st->fetchAll(PDO::FETCH_ASSOC);
-    echo "<h4>" . $_br_h("{$_br_sel['code']} {$_br_sel['year']} Wk {$_br_sel['week_number']} {$_br_sel['abbr']}") . ": "
+    echo "<h4>" . $_br_h("{$_br_sel['code']} Season {$_br_sel['year']} Week {$_br_sel['week_number']} {$_br_sel['abbr']}") . ": "
        . count($rows) . " players stored</h4>";
     if ($rows) {
-        echo "<div style='overflow-x:auto'><table class='w3-table w3-bordered w3-small' style='background:#fff;color:#000'>";
-        echo "<tr><th>Sh</th><th>Name</th><th>Type</th><th>Ability</th><th>Exp</th><th>Pot</th><th>Trd</th><th>Fat</th><th>Frm</th>"
-           . "<th>Tot</th><th>Inj</th><th>Value</th><th>Wages</th><th colspan='4'>Skills</th><th>Sqd</th><th colspan='5'>MxB MxH MxE FIn MnB / Pos vRH Plt Pin</th></tr>";
+        echo $_br_tbl;
+        echo "<tr><th style='padding:4px 8px'>Sh</th><th style='padding:4px 8px'>Name</th><th style='padding:4px 8px'>Type</th><th style='padding:4px 8px'>Ability</th><th style='padding:4px 8px'>Exp</th><th style='padding:4px 8px'>Pot</th><th style='padding:4px 8px'>Trd</th><th style='padding:4px 8px'>Fat</th><th style='padding:4px 8px'>Frm</th>"
+           . "<th style='padding:4px 8px'>Tot</th><th style='padding:4px 8px'>Inj</th><th style='padding:4px 8px'>Value</th><th style='padding:4px 8px'>Wages</th><th style='padding:4px 8px' colspan='4'>Skills</th><th style='padding:4px 8px'>Sqd</th><th style='padding:4px 8px' colspan='5'>MxB MxH MxE FIn MnB / Pos vRH Plt Pin</th></tr>";
         foreach ($rows as $e) {
             $x = $e['player_type'] === 'Pit'
                 ? [$e['pit_mxb'], $e['pit_mxh'], $e['pit_mxe'], $e['pit_fin'], $e['pit_mnb']]
                 : [$e['bat_pos'], $e['bat_vrh'], $e['bat_plt'], $e['bat_pin'], ''];
-            echo "<tr><td>" . (int)$e['shirt_no'] . "</td><td>" . $_br_h($e['player_name']) . "</td><td>" . $_br_h($e['player_type'] . ' ' . $e['bats_throws'])
-               . "</td><td>" . (int)$e['player_level'] . ' ' . $_br_h($e['best_skill']) . "</td><td>" . ((int)$e['experience'] === 0 ? 'R' : (int)$e['experience'])
-               . "</td><td>" . (int)$e['potential'] . "</td><td>" . (int)$e['trade'] . "</td><td>" . (int)$e['fatigue']
-               . "</td><td>" . (int)$e['form'] . ((int)$e['addform_active'] ? '+' : '') . "</td><td>" . (int)$e['total'] . "</td><td>" . (int)$e['injury']
-               . "</td><td>" . (int)$e['value_lp'] . "</td><td>" . (int)$e['wages_lp'] . ((int)$e['half_wages'] ? '*' : '')
-               . "</td><td>" . $_br_h($e['skill_a']) . "</td><td>" . $_br_h($e['skill_b']) . "</td><td>" . $_br_h($e['skill_c']) . "</td><td>" . $_br_h($e['skill_d'])
-               . "</td><td>" . $_br_h($e['squad']) . "</td>";
-            foreach ($x as $v) { echo "<td>" . $_br_h($v ?? '') . "</td>"; }
+            echo "<tr><td style='padding:4px 8px'>" . (int)$e['shirt_no'] . "</td><td style='padding:4px 8px'>" . $_br_h($e['player_name']) . "</td><td style='padding:4px 8px'>" . $_br_h($e['player_type'] . ' ' . $e['bats_throws'])
+               . "</td><td style='padding:4px 8px'>" . (int)$e['player_level'] . ' ' . $_br_h($e['best_skill']) . "</td><td style='padding:4px 8px'>" . ((int)$e['experience'] === 0 ? 'R' : (int)$e['experience'])
+               . "</td><td style='padding:4px 8px'>" . (int)$e['potential'] . "</td><td style='padding:4px 8px'>" . (int)$e['trade'] . "</td><td style='padding:4px 8px'>" . (int)$e['fatigue']
+               . "</td><td style='padding:4px 8px'>" . (int)$e['form'] . ((int)$e['addform_active'] ? '+' : '') . "</td><td style='padding:4px 8px'>" . (int)$e['total'] . "</td><td style='padding:4px 8px'>" . (int)$e['injury']
+               . "</td><td style='padding:4px 8px'>" . (int)$e['value_lp'] . "</td><td style='padding:4px 8px'>" . (int)$e['wages_lp'] . ((int)$e['half_wages'] ? '*' : '')
+               . "</td><td style='padding:4px 8px'>" . $_br_h($e['skill_a']) . "</td><td style='padding:4px 8px'>" . $_br_h($e['skill_b']) . "</td><td style='padding:4px 8px'>" . $_br_h($e['skill_c']) . "</td><td style='padding:4px 8px'>" . $_br_h($e['skill_d'])
+               . "</td><td style='padding:4px 8px'>" . $_br_h($e['squad']) . "</td>";
+            foreach ($x as $v) { echo "<td style='padding:4px 8px'>" . $_br_h($v ?? '') . "</td>"; }
             echo "</tr>";
         }
         echo "</table></div>";
