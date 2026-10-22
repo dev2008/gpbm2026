@@ -823,6 +823,24 @@ do {
         $_cp_fsr_error = $_cp_e->getMessage();
     }
 
+    // -------------------- A7: franchise_honors for a completed season --------------------
+    // After the season records, because NFLAR's perfect and undefeated seasons read them. The rules,
+    // and when a season counts as complete, are in gp_honours.php's header (schema.md s19). It only
+    // adds honours a season lacks; nothing is deleted or changed. A missing helper or a failure is
+    // shown, not swallowed: the games above are already written either way.
+    $_cp_hon = null;
+    $_cp_hon_error = null;
+    if (is_readable(__DIR__ . '/gp_honours.php')) {
+        require_once __DIR__ . '/gp_honours.php';
+        try {
+            $_cp_hon = gp_honours_refresh($conn, $_cp_season_id);
+        } catch (Throwable $_cp_e) {
+            $_cp_hon_error = $_cp_e->getMessage();
+        }
+    } else {
+        $_cp_hon_error = 'gp_honours.php is missing beside this page';
+    }
+
     echo "<div class='w3-panel w3-pale-green w3-text-black w3-round-large'>";
     // H48: "N of M", so a partly written week shows in the summary itself and not only in
     // the red panels further down (2034 weeks 19 and 20 were partly written unnoticed).
@@ -838,7 +856,35 @@ do {
            . "{$_cp_fsr['refused']} refused by the guard (stored record fuller than games; expected for "
            . "partial seasons).</p>";
     }
+    if ($_cp_hon !== null) {
+        echo "<p>franchise_honors for this season: "
+           . ($_cp_hon['complete']
+                ? "<strong>{$_cp_hon['inserted']}</strong> added, " . count($_cp_hon['derived']) . " derived."
+                : "not yet (" . htmlspecialchars($_cp_hon['why']) . ").")
+           . "</p>";
+    }
     echo "</div>";
+    if ($_cp_hon_error !== null || ($_cp_hon !== null && ($_cp_hon['unmapped'] || $_cp_hon['extras']))) {
+        echo "<div class='w3-panel w3-pale-red w3-text-black w3-round-large'>";
+        if ($_cp_hon_error !== null) {
+            echo "<p><strong>franchise_honors was NOT refreshed</strong> (games above are unaffected): "
+               . htmlspecialchars($_cp_hon_error) . "</p>";
+        } else {
+            if ($_cp_hon['unmapped']) {
+                echo "<p><strong>franchise_honors NOT written</strong>: no honor_types row for "
+                   . htmlspecialchars(implode(', ', $_cp_hon['unmapped'])) . " in this league.</p>";
+            }
+            if ($_cp_hon['extras']) {
+                echo "<p><strong>" . count($_cp_hon['extras']) . "</strong> honour(s) held that the rules do not derive "
+                   . "(left as they are; tell Claude):</p><ul>";
+                foreach ($_cp_hon['extras'] as [$_cp_c, $_cp_f]) {
+                    echo "<li>" . htmlspecialchars("$_cp_c, franchise $_cp_f") . "</li>";
+                }
+                echo "</ul>";
+            }
+        }
+        echo "</div>";
+    }
     if ($_cp_fsr_error !== null) {
         echo "<div class='w3-panel w3-pale-red w3-text-black w3-round-large'>";
         echo "<p><strong>franchise_season_records was NOT refreshed</strong> (nothing written to it; games above are unaffected): "

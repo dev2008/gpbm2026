@@ -535,7 +535,8 @@ $_cp_honors_won = $_cp_stmt->fetchAll(PDO::FETCH_ASSOC);
 // per-franchise honours table already gives full per-bowl detail for anyone who wants it.
 // honor_types codes confirmed in new_schema.sql: LEAGUE_WINNER, LEAGUE_RUNNERUP (college only),
 // CONFERENCE_CHAMPION, DIVISION_CHAMPION + WILDCARD_BERTH (pro only), the five named bowls +
-// CIC_WINNER (college only), RIVALRY_WINNER, PERFECT_SEASON (college only). RIVALRY_WINNER
+// CIC_WINNER (college only), RIVALRY_WINNER, PERFECT_SEASON and UNDEFEATED_SEASON (both leagues
+// from A7, 22 Oct 2026; PERFECT_SEASON was college only before). RIVALRY_WINNER
 // deliberately excluded below -- a season-by-season rivalry result isn't really a "career
 // honour" the way a championship or bowl win is.
 //
@@ -666,6 +667,7 @@ function honor_display_labels($league_code) {
         'DIVISION_CHAMPION' => 'Division Championships',
         'WILDCARD_BERTH' => 'Wildcard Berths',
         'PERFECT_SEASON' => 'Perfect Seasons',
+        'UNDEFEATED_SEASON' => 'Undefeated Seasons',
         'OTHER_BOWL_WINS' => 'Other Bowl Wins',
     ];
 }
