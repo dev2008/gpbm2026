@@ -1,5 +1,7 @@
 <?php
-// gp_honours.php · rev 001 · 22 Oct 2026 · role: shared helper · authority: derived (schema.md s19)
+// gp_honours.php · rev 002 · 22 Oct 2026 · role: shared helper · authority: derived (schema.md s19)
+// rev 002: an undefeated season includes a perfect one (Alan, 22 Oct 2026, NZ6: "undefeated seasons need to include
+//          perfect seasons"): a perfect season now holds both honours. rev 001 gave it Perfect only.
 // A7. Derives a completed season's franchise_honors from its games and inserts the ones missing.
 //
 // ------------------------------------------------------------------
@@ -14,15 +16,15 @@
 //   NCAA5   winner / loser of game types 8 (LEAGUE_), 9 ROSE_BOWL_, 10 COTTON_BOWL_, 11 ORANGE_BOWL_,
 //           12 HAWAII_BOWL_, 13 MUSIC_CITY_BOWL_ + WINNER / RUNNERUP
 //           PERFECT_SEASON     13 games outside pre-season, all won
-//           UNDEFEATED_SEASON  13 games outside pre-season, none lost, at least one drawn (A7, Q10)
+//           UNDEFEATED_SEASON  13 games outside pre-season, none lost (A7, Q10; perfect seasons included, NZ6)
 //   NFLAR   LEAGUE_WINNER / LEAGUE_RUNNERUP   winner / loser of the Superbowl (36)
 //           WILDCARD_BERTH       both teams of the week-17 Play Offs (35)
 //           DIVISION_CHAMPION    the week-18 Play Offs teams, less the week-17 winners
 //           CONFERENCE_CHAMPION / _RUNNERUP   winners / losers of the week-19 Play Offs
 //           PERFECT_SEASON       the Superbowl winner, 16-0-0 in franchise_season_records (A7, Q7)
-//           UNDEFEATED_SEASON    the Superbowl winner, 16 games, none lost, at least one drawn (Q10)
-//   "Perfect" is winning every game; "undefeated" is losing none with a draw (Alan, Q6 and Q10 of
-//   22 Oct 2026). A season gets one of the two, never both.
+//           UNDEFEATED_SEASON    the Superbowl winner, 16 games, none lost (Q10; perfect seasons included, NZ6)
+//   "Perfect" is winning every game; "undefeated" is losing none (Alan, Q6 and Q10 of 22 Oct 2026). Every
+//   perfect season is also undefeated and holds both honours (Alan, NZ6 of 22 Oct 2026).
 //
 // WHY THE PLAY-OFF WEEKS ARE NUMBERS, NOT "THE FIRST PLAY-OFF WEEK": H46 took MIN(week). Weeks are
 // uploaded out of order (A3, H49); with week 18 in and week 17 not, MIN is 18 and every week-18 team
@@ -104,7 +106,10 @@ function gp_honours_derive(PDO $conn, $season_id) {
             }
         }
         foreach ($rec as $f => $r) {
-            if ($r['n'] === 13 && $r['l'] === 0) { $d[] = [$r['t'] === 0 ? 'PERFECT_SEASON' : 'UNDEFEATED_SEASON', $f]; }
+            if ($r['n'] === 13 && $r['l'] === 0) {
+                if ($r['t'] === 0) { $d[] = ['PERFECT_SEASON', $f]; }
+                $d[] = ['UNDEFEATED_SEASON', $f];
+            }
         }
     } elseif ($s['code'] === 'NFLAR') {
         $sb = array_values(array_filter($games, fn($g) => $g['gt'] === 36));
@@ -143,7 +148,8 @@ function gp_honours_derive(PDO $conn, $season_id) {
         $st->execute([(int)$season_id, $sb[0]['w']]);
         $r = $st->fetch(PDO::FETCH_ASSOC);
         if ($r && (int)$r['wins'] + (int)$r['losses'] + (int)$r['ties'] === 16 && (int)$r['losses'] === 0) {
-            $d[] = [(int)$r['ties'] === 0 ? 'PERFECT_SEASON' : 'UNDEFEATED_SEASON', $sb[0]['w']];
+            if ((int)$r['ties'] === 0) { $d[] = ['PERFECT_SEASON', $sb[0]['w']]; }
+            $d[] = ['UNDEFEATED_SEASON', $sb[0]['w']];
         }
     } else {
         $out['why'] = "no honour rules for league {$s['code']}";

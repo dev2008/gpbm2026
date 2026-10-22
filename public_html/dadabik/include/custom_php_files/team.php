@@ -227,7 +227,7 @@ if ($_cp_is_pro) {
     render_honor_row($conn, $_cp_franchise_id, 'WILDCARD_BERTH', 'Wildcards');
 }
 // A7 (Alan, Q9 and Q10 of 22 Oct 2026): both leagues. Perfect is every game won; undefeated is none
-// lost with at least one drawn; a season holds one or the other (gp_honours.php).
+// lost, so every perfect season is counted in both rows (NZ6 of 22 Oct 2026; gp_honours.php).
 render_honor_row($conn, $_cp_franchise_id, 'PERFECT_SEASON', 'Perfect Seasons');
 render_honor_row($conn, $_cp_franchise_id, 'UNDEFEATED_SEASON', 'Undefeated Seasons');
 
