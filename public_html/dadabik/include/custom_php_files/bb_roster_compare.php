@@ -1,7 +1,10 @@
 <?php
 // don't delete this line, this must be the first line of your code
 if(!defined('custom_page_from_inclusion')) { die(); }
-// bb_roster_compare.php · rev 001 · 23 Oct 2026 · role: page (administrator only, on both hosts; read-only) · authority: derived
+// bb_roster_compare.php · rev 002 · 23 Oct 2026 · role: page (administrator only, on both hosts; read-only) · authority: derived
+// rev 002: the "No longer on the roster" line moves into its own pale-yellow panel between the table and the legend, the
+//          shape Extract Roster uses for its messages, and only when someone is gone. Item H75 (Alan, V4d and Q8 of
+//          23 Oct 2026 session1: "the message is not clearly separated"). Nothing else changed.
 // rev 001: first issue. Item B4 (Alan, Q1 to Q7 of 23 Oct 2026 session1; GameplanPBM/20261023/session1/SESSION_20261023_1.md s2).
 //
 // ------------------------------------------------------------------
@@ -131,10 +134,11 @@ foreach ($_rc_d['rows'] as $r) {
     echo '</tr>';
 }
 echo '</table></div>';
-echo "<p>Exp R is a rookie. Skill 1 to 4: Acc Con Qui Sta for a pitcher, Hit Pow Spd Fld for a batter or catcher. Value is red above 99 and amber from 70 to 99.</p>";
+// the gone line (Q4), in its own panel between the table and the legend, only when someone is gone (H75, rev 002)
 if ($_rc_d['gone']) {
-    echo "<p>No longer on the roster since Week {$_rc_wf['week_number']}: "
+    echo "<p class='w3-panel w3-pale-yellow w3-text-black'>No longer on the roster since Week {$_rc_wf['week_number']}: "
        . $_rc_h(implode(', ', array_map(fn($g) => "{$g['shirt']} {$g['player_name']} ({$g['player_type']})", $_rc_d['gone']))) . ".</p>";
 }
+echo "<p>Exp R is a rookie. Skill 1 to 4: Acc Con Qui Sta for a pitcher, Hit Pow Spd Fld for a batter or catcher. Value is red above 99 and amber from 70 to 99.</p>";
 echo "</div>";
 ?>
