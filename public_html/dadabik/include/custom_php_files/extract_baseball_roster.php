@@ -1,7 +1,10 @@
 <?php
 // don't delete this line, this must be the first line of your code
 if(!defined('custom_page_from_inclusion')) { die(); }
-// extract_baseball_roster.php · rev 005 · 23 Oct 2026 · role: page (administrator only, on both hosts) · authority: derived
+// extract_baseball_roster.php · rev 006 · 23 Oct 2026 · role: page (administrator only, on both hosts) · authority: derived
+// rev 006: H73 (Alan, Q2 and Q4 of 23 Oct 2026 session5): gpbm.uk is the master and dev takes a copy when it needs one, so the
+//          reminder shown on gpbm.uk ("tell Alan, so it reaches dev before the next up-sync") and the variable it used are
+//          gone; the comment below says what is now true. Nothing else changed.
 // rev 005: B7 (Alan, Q1 of 23 Oct 2026 session3): Show prints Exp with its * (no_free_agent) as the turn does, and the legend
 //          says what it means. Nothing else changed.
 // rev 004: B3 (Alan, Q5 to Q9 of 22 Oct 2026 session3): Extract also reads the upload's Team Stats (bb_stats_parser.php)
@@ -25,9 +28,9 @@ if(!defined('custom_page_from_inclusion')) { die(); }
 // that team (Q3). A second extract of the same upload changes nothing. A refused block writes nothing and the page
 // lists why. Choosing an upload shows the roster as stored, in the order the turn prints it.
 //
-// It runs and writes on both hosts (NZ2). Rows written on gpbm.uk are league data the standing up-sync would replace, so
-// they reach dev first (schema.md s20; on gpbm.uk the page says so). The extract is a GET carrying a one-time token held
-// in the session, as on the Neutral venues page: a refreshed or replayed extract writes nothing.
+// It runs and writes on both hosts (NZ2). gpbm.uk is the master of league data: rows written there are kept, and dev takes
+// a copy by the down-sync when it needs one (schema.md s20, H73); nothing is told to anybody. The extract is a GET carrying a
+// one-time token held in the session, as on the Neutral venues page: a refreshed or replayed extract writes nothing.
 // ------------------------------------------------------------------
 
 echo "<div class='w3-panel w3-theme-d5 w3-text-white w3-round-xxlarge'>";
@@ -41,7 +44,6 @@ if ($current_user_is_administrator != 1) {
 require_once __DIR__ . '/bb_roster_parser.php';
 require_once __DIR__ . '/bb_stats_parser.php';
 
-$_br_is_dev = defined('GPBM_ENV') && GPBM_ENV === 'dev';   // only for the reminder below; the page writes on both hosts
 $_br_has_session = (session_status() === PHP_SESSION_ACTIVE);
 if ($_br_has_session && empty($_SESSION['gp_br_token'])) {
     $_SESSION['gp_br_token'] = bin2hex(random_bytes(16));
@@ -87,9 +89,6 @@ if (($_GET['extract'] ?? '') === '1' && $_br_show > 0) {
         }
     }
     echo "<p class='w3-panel w3-pale-yellow w3-text-black'>" . $_br_msg . "</p>";
-}
-if (!$_br_is_dev) {
-    echo "<p class='w3-panel w3-pale-yellow w3-text-black'>An extract here is new league data on gpbm.uk: tell Alan, so it reaches dev before the next up-sync.</p>";
 }
 
 // ---------------- the uploads ----------------
