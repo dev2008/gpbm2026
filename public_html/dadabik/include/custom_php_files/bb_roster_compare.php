@@ -1,7 +1,13 @@
 <?php
 // don't delete this line, this must be the first line of your code
 if(!defined('custom_page_from_inclusion')) { die(); }
-// bb_roster_compare.php · rev 002 · 23 Oct 2026 · role: page (administrator only, on both hosts; read-only) · authority: derived
+// bb_roster_compare.php · rev 003 · 23 Oct 2026 · role: page (administrator only, on both hosts; read-only) · authority: derived
+// rev 003: two things, item H77 (Alan, 23 Oct 2026 session4, Q1 and Q4). (1) The counts line is reworded: it gave "31 players
+//          in both weeks, 1 new" and read as "each week has 31, yet one was added"; it now gives each week's total, then the
+//          carried-over, new (named) and gone counts, so it adds up on its face. (2) A selector that changes DISABLES the
+//          selectors below it before the form submits, so the address bar carries only the values the page uses: before,
+//          changing League resubmitted the old team, season and weeks too, which the page's fallback replaced silently while
+//          the URL kept them (a copied link named one team and showed another). The fallback itself is unchanged (B4's Q2).
 // rev 002: the "No longer on the roster" line moves into its own pale-yellow panel between the table and the legend, the
 //          shape Extract Roster uses for its messages, and only when someone is gone. Item H75 (Alan, V4d and Q8 of
 //          23 Oct 2026 session1: "the message is not clearly separated"). Nothing else changed.
@@ -15,8 +21,10 @@ if(!defined('custom_page_from_inclusion')) { die(); }
 // the CLI that proves it and this page gate on one piece of code.
 //
 // Selectors (Q2), each a GET form submit as style-guide.md s4: league, team, season, then the earlier and the later week,
-// over every week with a roster stored for that team; the default is the two latest. Administrator only on both hosts
-// (Q1): a coach-level version, each coach his own team, is a later item.
+// over every week with a roster stored for that team; the default is the two latest. A selector that changes disables
+// the ones below it first (a disabled control is not submitted), so the request names only what is chosen and the page's
+// defaults fill the rest (rev 003). Administrator only on both hosts (Q1): a coach-level version, each coach his own
+// team, is a later item.
 //
 // The table (Q3): the legacy columns, Exp also old and new (it changes at week 21), no Notes column. A player new in
 // the later week shows his current values alone. Players gone since the earlier week are listed under the table (Q4).
@@ -82,12 +90,15 @@ $_rc_opts = function (array $rows, string $key, string $labelKey, $chosen, ?call
     }
     return $o;
 };
+// rev 003: a change disables the selectors below it, then submits; the URL then carries only the levels chosen
+echo "<script>function gpRcGo(s, below) { for (const n of below.split(' ')) { if (s.form[n]) { s.form[n].disabled = true; } } s.form.submit(); }</script>";
+$_rc_go = fn($below) => "onchange='gpRcGo(this, \"$below\")'";
 echo "<form method='get' class='w3-container w3-padding-small'>";
 echo "<input type='hidden' name='function' value='" . $_rc_h($_GET['function'] ?? 'show_static_page') . "'>";
 echo "<input type='hidden' name='id_static_page' value='" . $_rc_h($_GET['id_static_page'] ?? '') . "'>";
-echo "League <select name='league' onchange='this.form.submit()'>" . $_rc_opts($_rc_all, 'code', 'code', $_rc_league) . "</select> ";
-echo "Team <select name='franchise' onchange='this.form.submit()'>" . $_rc_opts($_rc_lrows, 'franchise_id', 'label', $_rc_fid, fn($r) => "{$r['label']} ({$r['abbr']})") . "</select> ";
-echo "Season <select name='season' onchange='this.form.submit()'>" . $_rc_opts($_rc_frows, 'season_id', 'year', $_rc_sid) . "</select> ";
+echo "League <select name='league' " . $_rc_go('franchise season from to') . ">" . $_rc_opts($_rc_all, 'code', 'code', $_rc_league) . "</select> ";
+echo "Team <select name='franchise' " . $_rc_go('season from to') . ">" . $_rc_opts($_rc_lrows, 'franchise_id', 'label', $_rc_fid, fn($r) => "{$r['label']} ({$r['abbr']})") . "</select> ";
+echo "Season <select name='season' " . $_rc_go('from to') . ">" . $_rc_opts($_rc_frows, 'season_id', 'year', $_rc_sid) . "</select> ";
 $_rc_wlabel = fn($r) => "Week {$r['week_number']} ({$r['players']} players)";
 echo "From <select name='from' onchange='this.form.submit()'>" . $_rc_opts($_rc_weeks, 'week_id', 'week_number', $_rc_from, $_rc_wlabel) . "</select> ";
 echo "To <select name='to' onchange='this.form.submit()'>" . $_rc_opts($_rc_weeks, 'week_id', 'week_number', $_rc_to, $_rc_wlabel) . "</select>";
@@ -104,8 +115,11 @@ if ((int)$_rc_wf['week_number'] > (int)$_rc_wt['week_number']) {
 $_rc_d = bb_roster_diff($conn, $_rc_from, $_rc_to, $_rc_fid);
 $_rc_c = $_rc_d['counts']; $_rc_s = $_rc_d['summary'];
 echo "<h4>" . $_rc_h("{$_rc_league} Season {$_rc_team['year']}: {$_rc_team['label']} ({$_rc_team['abbr']}), Week {$_rc_wf['week_number']} to Week {$_rc_wt['week_number']}") . "</h4>";
-echo "<p>" . (int)$_rc_c['matched'] . " players in both weeks, " . (int)$_rc_c['new'] . " new in Week {$_rc_wt['week_number']}, "
-   . (int)$_rc_c['gone'] . " gone since Week {$_rc_wf['week_number']}.</p>";
+// the counts line (rev 003): each week's total first, so the carried-over, new and gone counts add up on its face
+$_rc_newnames = implode(', ', array_map(fn($r) => "{$r['shirt']} {$r['name']}", array_filter($_rc_d['rows'], fn($r) => $r['is_new'])));
+echo "<p>" . $_rc_h("Week {$_rc_wf['week_number']}: {$_rc_wf['players']} players. Week {$_rc_wt['week_number']}: {$_rc_wt['players']} players: "
+   . (int)$_rc_c['matched'] . " carried over, " . (int)$_rc_c['new'] . " new" . ($_rc_newnames !== '' ? " ($_rc_newnames)" : '') . ", "
+   . (int)$_rc_c['gone'] . " gone since Week {$_rc_wf['week_number']}.") . "</p>";
 
 // the summary, as the legacy page counted it (Q5)
 $_rc_tag = fn($cls, $text) => "<span class='w3-tag w3-round $cls'>" . $_rc_h($text) . "</span>";
