@@ -1,7 +1,9 @@
 <?php
 // don't delete this line, this must be the first line of your code
 if(!defined('custom_page_from_inclusion')) { die(); }
-// extract_baseball_roster.php · rev 004 · 22 Oct 2026 · role: page (administrator only, on both hosts) · authority: derived
+// extract_baseball_roster.php · rev 005 · 23 Oct 2026 · role: page (administrator only, on both hosts) · authority: derived
+// rev 005: B7 (Alan, Q1 of 23 Oct 2026 session3): Show prints Exp with its * (no_free_agent) as the turn does, and the legend
+//          says what it means. Nothing else changed.
 // rev 004: B3 (Alan, Q5 to Q9 of 22 Oct 2026 session3): Extract also reads the upload's Team Stats (bb_stats_parser.php)
 //          into bb_pitching_stats and bb_batting_stats, in ONE transaction with the roster (Q9): either both are written or
 //          neither. The list gains "Stats stored"; Show adds the pitching and batting totals under the roster, IP as
@@ -140,7 +142,7 @@ if ($_br_sel !== null) {
                 ? [$e['pit_mxb'], $e['pit_mxh'], $e['pit_mxe'], $e['pit_fin'], $e['pit_mnb']]
                 : [$e['bat_pos'], $e['bat_vrh'], $e['bat_plt'], $e['bat_pin'], ''];
             echo "<tr><td style='padding:4px 8px'>" . (int)$e['shirt_no'] . "</td><td style='padding:4px 8px'>" . $_br_h($e['player_name']) . "</td><td style='padding:4px 8px'>" . $_br_h($e['player_type'] . ' ' . $e['bats_throws'])
-               . "</td><td style='padding:4px 8px'>" . (int)$e['player_level'] . ' ' . $_br_h($e['best_skill']) . "</td><td style='padding:4px 8px'>" . ((int)$e['experience'] === 0 ? 'R' : (int)$e['experience'])
+               . "</td><td style='padding:4px 8px'>" . (int)$e['player_level'] . ' ' . $_br_h($e['best_skill']) . "</td><td style='padding:4px 8px'>" . ((int)$e['experience'] === 0 ? 'R' : (int)$e['experience']) . ((int)$e['no_free_agent'] ? '*' : '')
                . "</td><td style='padding:4px 8px'>" . (int)$e['potential'] . "</td><td style='padding:4px 8px'>" . (int)$e['trade'] . "</td><td style='padding:4px 8px'>" . (int)$e['fatigue']
                . "</td><td style='padding:4px 8px'>" . (int)$e['form'] . ((int)$e['addform_active'] ? '+' : '') . "</td><td style='padding:4px 8px'>" . (int)$e['total'] . "</td><td style='padding:4px 8px'>" . (int)$e['injury']
                . "</td><td style='padding:4px 8px'>" . (int)$e['value_lp'] . "</td><td style='padding:4px 8px'>" . (int)$e['wages_lp'] . ((int)$e['half_wages'] ? '*' : '')
@@ -150,7 +152,7 @@ if ($_br_sel !== null) {
             echo "</tr>";
         }
         echo "</table></div>";
-        echo "<p>Exp R is a rookie. Frm + is an active ADDFORM. Wages * is a draft squad player on half wages.</p>";
+        echo "<p>Exp R is a rookie; Exp * is a player who would not become a free agent if released. Frm + is an active ADDFORM. Wages * is a draft squad player on half wages.</p>";
     }
 
     // ---------------- the stats, as stored (B3) ----------------

@@ -1,7 +1,10 @@
 <?php
-// bb_roster_parser.php · rev 002 · 22 Oct 2026 · role: helper, included by extract_baseball_roster.php and the runner's CLI
+// bb_roster_parser.php · rev 003 · 23 Oct 2026 · role: helper, included by extract_baseball_roster.php and the runner's CLI
 //                       (scripts/gpbm_b2_roster_cli.php) · authority: B2 (Alan, Q2 to Q7 of 22 Oct 2026 session2;
-//                       GameplanPBM/20261022/session2/SESSION_20261022_2.md s2, s3)
+//                       GameplanPBM/20261022/session2/SESSION_20261022_2.md s2, s3); B7 (Alan, Q1 of 23 Oct 2026 session3)
+// rev 003: B7 (Alan, Q1 of 23 Oct 2026 session3): Exp may be printed with a * after it ("15*": the player would not become a
+//          free agent if released, the turn's own GM Reminder; first seen in upload 94, MLB8 s27 week 21). Rev 002 refused the
+//          line and so the block. The * is read into the new column no_free_agent (1 when printed). Nothing else changed.
 // rev 002: H74 (Alan, Q11 of 22 Oct 2026 session2, and "Let's write Week in full please"): the label reads
 //          "MLB21 Season 35 Week 21 PH", not "MLB21 35 Wk 21 PH". Nothing else changed.
 // rev 001: first issue.
@@ -23,7 +26,8 @@
 // (534 lines, 18 turns, 22 Oct 2026; session log s3):
 //   98  Nick Lodolo<T>Pit R   9 CON    8   8  10   3   2  15   0   59 LP   5 LP<T> Go  Ex  Go  Ex <T>Act<T><T> 30   5   9   1  18
 //   26  Zak Williams<T>Cat L   9 FLD    5  12  11   3   1+ 16   0   49 LP   4 LP<T> Go  Go  Go  Ex <T>Act<T>  C   C
-//   - Exp R is a rookie, stored 0 (Q4); a + after Frm is an active ADDFORM (Q7); a * after Wages is half wages.
+//   - Exp R is a rookie, stored 0 (Q4); a * after Exp is no_free_agent (B7); a + after Frm is an active ADDFORM (Q7); a * after
+//     Wages is half wages.
 //   - The batters' last field is fixed width: four right-aligned 3-character columns with a space between (15 characters).
 //   - An injured player's Inj is wrapped in style tags (`   0<Z>  14<C>   19 LP`); <Z>, <C> and <B> are removed anywhere.
 //   - Uploads 63 to 71 hold CRLF line ends; the rest LF. Both are read.
@@ -32,7 +36,7 @@
 if (!defined('BB_ROSTER_COLS')) {
     // the parsed columns, in table order after the key; a row is unchanged when every one of these is equal
     define('BB_ROSTER_COLS', ['source_upload_id', 'report_order', 'player_name', 'player_type', 'bats_throws', 'player_level',
-        'best_skill', 'experience', 'potential', 'trade', 'fatigue', 'form', 'addform_active', 'total', 'injury', 'value_lp',
+        'best_skill', 'experience', 'no_free_agent', 'potential', 'trade', 'fatigue', 'form', 'addform_active', 'total', 'injury', 'value_lp',
         'wages_lp', 'half_wages', 'skill_a', 'skill_b', 'skill_c', 'skill_d', 'squad', 'pit_mxb', 'pit_mxh', 'pit_mxe',
         'pit_fin', 'pit_mnb', 'bat_pos', 'bat_vrh', 'bat_plt', 'bat_pin']);
 }
@@ -69,7 +73,7 @@ function bb_roster_parse(string $block): array {
     $out['team'] = $m[1]; $out['coach'] = $m[2];
 
     $g = '(Po|Fa|Av|Go|Ex|WC)';
-    $re = '/^\s*(\d{1,3})\s+(\S.*?)<T>(Pit|Bat|Cat)\s+([LRS])\s+(\d{1,2})\s+(ACC|CON|QUI|STA|HIT|POW|SPD|FLD)\s+(R|\d{1,2})'
+    $re = '/^\s*(\d{1,3})\s+(\S.*?)<T>(Pit|Bat|Cat)\s+([LRS])\s+(\d{1,2})\s+(ACC|CON|QUI|STA|HIT|POW|SPD|FLD)\s+(R|\d{1,2})(\*?)'
         . '\s+(\d{1,2})\s+(\d{1,2})\s+(-?\d{1,2})\s+(-?\d{1,2})(?:(\+)\s*|\s+)(-?\d{1,3})\s+(\d{1,3})\s+(\d{1,3}) LP\s+(\d{1,3}) LP(\*?)'
         . "<T>\\s*$g\\s+$g\\s+$g\\s+$g\\s*<T>(Act|Res|Drf)<T>(.*)$/";
     $kind = null; $order = 0; $end = false;
@@ -99,16 +103,16 @@ function bb_roster_parse(string $block): array {
         if (isset($out['rows'][$sh])) { $out['errors'][] = "line " . ($i + 1) . ": shirt $sh printed twice"; continue; }
         $row = [
             'report_order' => ++$order, 'player_name' => trim($m[2]), 'player_type' => $type, 'bats_throws' => $m[4],
-            'player_level' => (int)$m[5], 'best_skill' => $m[6], 'experience' => ($m[7] === 'R' ? 0 : (int)$m[7]),
-            'potential' => (int)$m[8], 'trade' => (int)$m[9], 'fatigue' => (int)$m[10], 'form' => (int)$m[11],
-            'addform_active' => ($m[12] === '+' ? 1 : 0), 'total' => (int)$m[13], 'injury' => (int)$m[14],
-            'value_lp' => (int)$m[15], 'wages_lp' => (int)$m[16], 'half_wages' => ($m[17] === '*' ? 1 : 0),
-            'skill_a' => $m[18], 'skill_b' => $m[19], 'skill_c' => $m[20], 'skill_d' => $m[21], 'squad' => $m[22],
+            'player_level' => (int)$m[5], 'best_skill' => $m[6], 'experience' => ($m[7] === 'R' ? 0 : (int)$m[7]), 'no_free_agent' => ($m[8] === '*' ? 1 : 0),
+            'potential' => (int)$m[9], 'trade' => (int)$m[10], 'fatigue' => (int)$m[11], 'form' => (int)$m[12],
+            'addform_active' => ($m[13] === '+' ? 1 : 0), 'total' => (int)$m[14], 'injury' => (int)$m[15],
+            'value_lp' => (int)$m[16], 'wages_lp' => (int)$m[17], 'half_wages' => ($m[18] === '*' ? 1 : 0),
+            'skill_a' => $m[19], 'skill_b' => $m[20], 'skill_c' => $m[21], 'skill_d' => $m[22], 'squad' => $m[23],
             'pit_mxb' => null, 'pit_mxh' => null, 'pit_mxe' => null, 'pit_fin' => null, 'pit_mnb' => null,
             'bat_pos' => null, 'bat_vrh' => null, 'bat_plt' => null, 'bat_pin' => null,
         ];
         if ($m[7] === '0') { $out['errors'][] = "line " . ($i + 1) . ": Exp printed 0, which would read as R"; continue; }
-        $rest = $m[23];
+        $rest = $m[24];
         if ($type === 'Pit') {
             if (!preg_match('/^<T>\s*(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})\s*$/', $rest, $x)) {
                 $out['errors'][] = "line " . ($i + 1) . ": the pitcher's MxB MxH MxE FIn MnB block does not read"; continue;
