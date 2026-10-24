@@ -1,7 +1,11 @@
 <?php
 // don't delete this line, this must be the first line of your code
 if(!defined('custom_page_from_inclusion')) { die(); }
-// neutral_venues.php · rev 002 · 21 Oct 2026 · role: page (administrator only; writes on dev only) · authority: derived
+// neutral_venues.php · rev 003 · 24 Oct 2026 · role: page (administrator only; writes on whichever host it runs on) · authority: derived
+// rev 003: the page saves on either host (H72; the direction of H73: gpbm.uk is the master of league data and dev takes a copy
+//          by its refresh, Alan Q1 to Q6 of 23 Oct 2026 session5, schema.md s20). The GPBM_ENV 'dev' guard, the "Not saved:
+//          venues are entered on dev and carried here by the up-sync" message, the "Read only here" panel and the "Saving is
+//          on dev only" note are gone. Nothing else changed.
 // rev 002: the administrator test is DaDaBIK's $current_user_is_administrator, as in game.php (Alan, 21 Oct 2026); rev 001
 //          compared $current_id_group with 1. Nothing else changed.
 // Item P18 (Alan, Q1 to Q11 of 21 Oct 2026 session3; GameplanPBM/20261021/session3/SESSION_20261021_3.md s2).
@@ -20,8 +24,8 @@ if(!defined('custom_page_from_inclusion')) { die(); }
 //   - any other league (NCAA5): every venue. The National Championship Game rotates (Q8).
 //   - a game whose own venue is outside that list keeps it as a choice, marked, so a Save never clears it.
 //
-// Sites are entered on dev and carried to gpbm.uk by the up-sync (P17 Q14), so the page WRITES ONLY WHERE
-// GPBM_ENV is 'dev' (env_bootstrap.php). Anywhere else it lists and does not save.
+// The page writes on whichever host it runs on (rev 003, H72). gpbm.uk is the master of league data: a venue set
+// there is kept, and dev takes a copy at its next refresh (schema.md s20). A venue set on dev stays on dev.
 //
 // The save is a GET, like extract_games.php's, carrying a one-time token held in the session: a refreshed or
 // replayed save writes nothing. Each row is written only if it changed, and only if the game still holds the
@@ -38,7 +42,6 @@ if ($current_user_is_administrator != 1) {
     return;
 }
 
-$_nv_is_dev = defined('GPBM_ENV') && GPBM_ENV === 'dev';
 $_nv_has_session = (session_status() === PHP_SESSION_ACTIVE);
 if ($_nv_has_session && empty($_SESSION['gp_nv_token'])) {
     $_SESSION['gp_nv_token'] = bin2hex(random_bytes(16));
@@ -131,9 +134,7 @@ $_nv_load = function ($all) use ($conn, $_nv_games_sql, $_nv_sid) {
 // ---------------- the save ----------------
 if (($_GET['save'] ?? '') === '1') {
     $_nv_msg = '';
-    if (!$_nv_is_dev) {
-        $_nv_msg = "Not saved: venues are entered on dev and carried here by the up-sync.";
-    } elseif (!$_nv_has_session || !hash_equals((string)$_SESSION['gp_nv_token'], (string)($_GET['token'] ?? ''))) {
+    if (!$_nv_has_session || !hash_equals((string)$_SESSION['gp_nv_token'], (string)($_GET['token'] ?? ''))) {
         $_nv_msg = "Not saved: this form was saved already, or is out of date. Nothing was written; the list below is current.";
     } else {
         $_nv_want = is_array($_GET['v'] ?? null) ? $_GET['v'] : [];
@@ -220,10 +221,6 @@ if ($_nv_unmapped) {
     echo "<p class='w3-panel w3-pale-red w3-text-black'>No stadium is set for: " . $_nv_h(implode(', ', $_nv_unmapped))
        . ". Add a row for each in Team venues to offer it.</p>";
 }
-if (!$_nv_is_dev) {
-    echo "<p class='w3-panel w3-pale-yellow w3-text-black'>Read only here: venues are entered on dev.</p>";
-}
-
 // ---------------- the list ----------------
 if (!$_nv_games) {
     echo "<p>No " . ($_nv_show_all ? '' : 'unset ') . "neutral game in " . $_nv_h($_nv_season['year']) . ".</p></div>";
@@ -261,9 +258,7 @@ foreach ($_nv_games as $r) {
        . "<select class='gp_nv_pick' name='v[$gid]'>" . $_nv_opts($cur, $r['own_label']) . "</select></td></tr>";
 }
 echo "</table>";
-echo "<p>" . ($_nv_is_dev
-        ? "<button type='submit' class='w3-button w3-white'>Save</button>"
-        : "<em>Saving is on dev only.</em>") . "</p>";
+echo "<p><button type='submit' class='w3-button w3-white'>Save</button></p>";
 echo "</form>";
 echo "<script>function gpNvAll(){var v=document.getElementById('gp_nv_all').value;"
    . "document.querySelectorAll('#gp_nv_form select.gp_nv_pick').forEach(function(s){"
