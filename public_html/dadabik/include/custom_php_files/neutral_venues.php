@@ -1,7 +1,8 @@
 <?php
 // don't delete this line, this must be the first line of your code
 if(!defined('custom_page_from_inclusion')) { die(); }
-// neutral_venues.php · rev 003 · 24 Oct 2026 · role: page (administrator only; writes on whichever host it runs on) · authority: derived
+// neutral_venues.php · rev 004 · 24 Oct 2026 · role: page (administrator only; writes on whichever host it runs on) · authority: derived
+// rev 004: a gap between the table and the Save button (w3-margin-top; Alan, V3a of 24 Oct 2026 session2, Q1). Nothing else changed.
 // rev 003: the page saves on either host (H72; the direction of H73: gpbm.uk is the master of league data and dev takes a copy
 //          by its refresh, Alan Q1 to Q6 of 23 Oct 2026 session5, schema.md s20). The GPBM_ENV 'dev' guard, the "Not saved:
 //          venues are entered on dev and carried here by the up-sync" message, the "Read only here" panel and the "Saving is
@@ -258,7 +259,7 @@ foreach ($_nv_games as $r) {
        . "<select class='gp_nv_pick' name='v[$gid]'>" . $_nv_opts($cur, $r['own_label']) . "</select></td></tr>";
 }
 echo "</table>";
-echo "<p><button type='submit' class='w3-button w3-white'>Save</button></p>";
+echo "<p class='w3-margin-top'><button type='submit' class='w3-button w3-white'>Save</button></p>";
 echo "</form>";
 echo "<script>function gpNvAll(){var v=document.getElementById('gp_nv_all').value;"
    . "document.querySelectorAll('#gp_nv_form select.gp_nv_pick').forEach(function(s){"
