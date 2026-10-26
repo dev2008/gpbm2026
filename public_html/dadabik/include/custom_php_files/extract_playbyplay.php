@@ -1,6 +1,12 @@
 <?php
 // don't delete this line, this must be the first line of your code
 if(!defined('custom_page_from_inclusion')) { die(); }
+// H33 (25-Oct-2026, Alan Q1 to Q9 of 25 Oct 2026): is_interception is WRITTEN (the INSERT below had every flag but
+// that one, so uploads 11 to 92 stored 0 on 127 intercepted plays); play_text_patterns rows with is_regex = 1 are
+// matched as a PCRE (case-insensitive) rather than a substring, which lets "fumbled ... and run back" set fumble and
+// turnover and lets "touchdown" exclude a defensive or kick return ("run back ... is touchdown": the offence did not
+// score, Q8). The yardage conventions are unchanged: interception 0, sack the loss as printed, fumble the yards to the
+// point of the fumble. Nothing else changed.
 // H26 (18-Aug-2026): no error_handler.php include and no ini_set('display_errors') here.
 // DaDaBIK's bootstrap includes error_handler.php before any custom page runs (measured),
 // and display_errors is a php.ini setting per environment. See H26.
@@ -526,12 +532,12 @@ do {
     $_cp_play_upsert = $conn->prepare(
         "INSERT INTO plays (game_id, quarter, play_seq, time_gone_seconds, offense_franchise_id,
              field_side, field_position, down, yards_to_go, formation, off_call, def_call, result_text,
-             yards_gained, is_touchdown, is_fumble, is_turnover, is_penalty, is_penalty_offense,
+             yards_gained, is_touchdown, is_fumble, is_interception, is_turnover, is_penalty, is_penalty_offense,
              is_penalty_defense, is_sack, is_hurry, is_blitz_pickup, is_blitz_no_pickup, is_safety,
              is_incomplete, is_first_down, score_after, source_upload_id, id_user)
          VALUES (:game_id, :quarter, :play_seq, :time_gone_seconds, :offense_franchise_id,
              :field_side, :field_position, :down, :yards_to_go, :formation, :off_call, :def_call, :result_text,
-             :yards_gained, :is_touchdown, :is_fumble, :is_turnover, :is_penalty, :is_penalty_offense,
+             :yards_gained, :is_touchdown, :is_fumble, :is_interception, :is_turnover, :is_penalty, :is_penalty_offense,
              :is_penalty_defense, :is_sack, :is_hurry, :is_blitz_pickup, :is_blitz_no_pickup, :is_safety,
              :is_incomplete, :is_first_down, :score_after, :upload_id, :id_user)
          ON DUPLICATE KEY UPDATE
@@ -539,7 +545,7 @@ do {
              field_side = VALUES(field_side), field_position = VALUES(field_position), down = VALUES(down),
              yards_to_go = VALUES(yards_to_go), formation = VALUES(formation), off_call = VALUES(off_call), def_call = VALUES(def_call),
              result_text = VALUES(result_text), yards_gained = VALUES(yards_gained),
-             is_touchdown = VALUES(is_touchdown), is_fumble = VALUES(is_fumble), is_turnover = VALUES(is_turnover),
+             is_touchdown = VALUES(is_touchdown), is_fumble = VALUES(is_fumble), is_interception = VALUES(is_interception), is_turnover = VALUES(is_turnover),
              is_penalty = VALUES(is_penalty), is_penalty_offense = VALUES(is_penalty_offense),
              is_penalty_defense = VALUES(is_penalty_defense), is_sack = VALUES(is_sack), is_hurry = VALUES(is_hurry),
              is_blitz_pickup = VALUES(is_blitz_pickup), is_blitz_no_pickup = VALUES(is_blitz_no_pickup),
@@ -626,7 +632,7 @@ do {
             ':yards_to_go' => $play['yards_to_go'], ':formation' => $play['formation'],
             ':off_call' => $play['off_call'], ':def_call' => $play['def_call'],
             ':result_text' => $play['result_text'], ':yards_gained' => $play['yards_gained'],
-            ':is_touchdown' => $flags['sets_touchdown'], ':is_fumble' => $flags['sets_fumble'],
+            ':is_touchdown' => $flags['sets_touchdown'], ':is_fumble' => $flags['sets_fumble'], ':is_interception' => $flags['sets_interception'],
             ':is_turnover' => $flags['sets_turnover'], ':is_penalty' => ($flags['sets_penalty_offense'] || $flags['sets_penalty_defense']) ? 1 : 0,
             ':is_penalty_offense' => $flags['sets_penalty_offense'], ':is_penalty_defense' => $flags['sets_penalty_defense'],
             ':is_sack' => $flags['sets_sack'], ':is_hurry' => $flags['sets_hurry'],
@@ -951,16 +957,22 @@ function load_play_text_patterns($conn) {
     return $rows;
 }
 
-// Checks result_text against every pattern row (substring match), OR-ing together every
-// flag from every pattern that matches -- a play can accumulate flags from more than one
-// matching row, not just the single best match.
+// Checks result_text against every pattern row, OR-ing together every flag from every pattern
+// that matches -- a play can accumulate flags from more than one matching row, not just the
+// single best match. A row with is_regex = 1 (H33, 25 Oct 2026) is a PCRE matched case-
+// insensitively against the whole text, with no delimiters stored; every other row is a
+// case-insensitive substring. A regex row that will not compile matches nothing (preg_match
+// returns false) rather than stopping the extraction.
 function apply_play_text_patterns($result_text, $patterns) {
     $flag_names = ['sets_touchdown', 'sets_fumble', 'sets_interception', 'sets_turnover',
         'sets_penalty_offense', 'sets_penalty_defense', 'sets_sack', 'sets_hurry',
         'sets_blitz_pickup', 'sets_blitz_no_pickup', 'sets_safety', 'sets_incomplete'];
     $flags = array_fill_keys($flag_names, 0);
     foreach ($patterns as $p) {
-        if (stripos($result_text, $p['pattern_text']) !== false) {
+        $is_regex = isset($p['is_regex']) && (int)$p['is_regex'] === 1;
+        $hit = $is_regex ? (@preg_match('/' . str_replace('/', '\/', $p['pattern_text']) . '/i', $result_text) === 1)
+                         : (stripos($result_text, $p['pattern_text']) !== false);
+        if ($hit) {
             foreach ($flag_names as $fn) {
                 if ((int)$p[$fn] === 1) { $flags[$fn] = 1; }
             }
