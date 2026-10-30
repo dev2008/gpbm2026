@@ -1,6 +1,15 @@
 <?php
 // don't delete this line, this must be the first line of your code
 if(!defined('custom_page_from_inclusion')) { die(); }
+// H82 (30-Oct-2026, Alan Q2 of 30 Oct 2026 session1, Q3 to Q5 of session2; the NFL's Guide for Statisticians, NZ1):
+// a penalty play is not an attempt and its yardage is a separate category charged to the offending team. On a play
+// flagged is_penalty_offense or is_penalty_defense the parser now writes yards_gained NULL and penalty_yards = the
+// distance printed ("for loss of 5 yards", "for penalty of 5 yards", "for 15 yards and first down", "for first down
+// and 11 yard penalty": 5, 5, 15, 11; "one yard" 1; "less than a yard" 0, the offence's half of one yard, which the
+// game prints as "0 yards" on the other side), by extract_penalty_yards() below; is_first_down on a penalty row is 1
+// when the text says "first down" or when a defence penalty's yardage reaches the distance (proved on both tables
+// by the next play's down: SESSION_20261030_2.md s2), 0 on every offence penalty. Both tables carry the two CHECK
+// constraints, so a penalty row written without penalty_yards is refused. Nothing else changed.
 // H33 (25-Oct-2026, Alan Q1 to Q9 of 25 Oct 2026): is_interception is WRITTEN (the INSERT below had every flag but
 // that one, so uploads 11 to 92 stored 0 on 127 intercepted plays); play_text_patterns rows with is_regex = 1 are
 // matched as a PCRE (case-insensitive) rather than a substring, which lets "fumbled ... and run back" set fumble and
@@ -403,6 +412,10 @@ function a4_resolve_franchise_by_code_at_week($conn, $week_id, $team_code, &$log
 //     DECREASES it. Confirmed directly; this was initially assumed backwards.
 //   - is_first_down is a computed comparison (yards_gained >= yards_to_go on this same
 //     play), not a text pattern -- deliberately has no counterpart in play_text_patterns.
+//     On a penalty play (H82) it is the text's "first down", or a defence penalty whose
+//     penalty_yards reaches yards_to_go.
+//   - penalty_yards (H82): the penalty's distance as printed, on penalty plays only;
+//     yards_gained is NULL there (no attempt, no gain).
 // ------------------------------------------------------------------
 
 echo "<div class='w3-panel w3-theme-d5 w3-text-white w3-round-xxlarge'>";
@@ -532,19 +545,19 @@ do {
     $_cp_play_upsert = $conn->prepare(
         "INSERT INTO plays (game_id, quarter, play_seq, time_gone_seconds, offense_franchise_id,
              field_side, field_position, down, yards_to_go, formation, off_call, def_call, result_text,
-             yards_gained, is_touchdown, is_fumble, is_interception, is_turnover, is_penalty, is_penalty_offense,
+             yards_gained, penalty_yards, is_touchdown, is_fumble, is_interception, is_turnover, is_penalty, is_penalty_offense,
              is_penalty_defense, is_sack, is_hurry, is_blitz_pickup, is_blitz_no_pickup, is_safety,
              is_incomplete, is_first_down, score_after, source_upload_id, id_user)
          VALUES (:game_id, :quarter, :play_seq, :time_gone_seconds, :offense_franchise_id,
              :field_side, :field_position, :down, :yards_to_go, :formation, :off_call, :def_call, :result_text,
-             :yards_gained, :is_touchdown, :is_fumble, :is_interception, :is_turnover, :is_penalty, :is_penalty_offense,
+             :yards_gained, :penalty_yards, :is_touchdown, :is_fumble, :is_interception, :is_turnover, :is_penalty, :is_penalty_offense,
              :is_penalty_defense, :is_sack, :is_hurry, :is_blitz_pickup, :is_blitz_no_pickup, :is_safety,
              :is_incomplete, :is_first_down, :score_after, :upload_id, :id_user)
          ON DUPLICATE KEY UPDATE
              time_gone_seconds = VALUES(time_gone_seconds), offense_franchise_id = VALUES(offense_franchise_id),
              field_side = VALUES(field_side), field_position = VALUES(field_position), down = VALUES(down),
              yards_to_go = VALUES(yards_to_go), formation = VALUES(formation), off_call = VALUES(off_call), def_call = VALUES(def_call),
-             result_text = VALUES(result_text), yards_gained = VALUES(yards_gained),
+             result_text = VALUES(result_text), yards_gained = VALUES(yards_gained), penalty_yards = VALUES(penalty_yards),
              is_touchdown = VALUES(is_touchdown), is_fumble = VALUES(is_fumble), is_interception = VALUES(is_interception), is_turnover = VALUES(is_turnover),
              is_penalty = VALUES(is_penalty), is_penalty_offense = VALUES(is_penalty_offense),
              is_penalty_defense = VALUES(is_penalty_defense), is_sack = VALUES(is_sack), is_hurry = VALUES(is_hurry),
@@ -617,12 +630,31 @@ do {
             $play['yards_gained'] = 0;
         }
 
+        // H82: a penalty play records no attempt and no gain; its yardage is penalty_yards,
+        // charged to the side the flags name. A penalty text without a readable distance
+        // leaves penalty_yards NULL, and the table's CHECK constraint refuses the row: a
+        // new penalty shape is found at the upload, never stored silently.
+        $is_penalty_play = ($flags['sets_penalty_offense'] || $flags['sets_penalty_defense']) ? 1 : 0;
+        $penalty_yards = null;
+        if ($is_penalty_play) {
+            $penalty_yards = extract_penalty_yards($play['result_text']);
+            $play['yards_gained'] = null;
+        }
+
         // is_first_down: computed directly, not pattern-matched -- see file header. Left false
         // for goal-line plays (yards_to_go is null there; "first down" doesn't apply the same
         // way when the object of the play is reaching the endzone, which is_touchdown already
-        // captures).
-        $is_first_down = ($play['yards_to_go'] !== null && $play['yards_gained'] !== null
-                           && $play['yards_gained'] >= $play['yards_to_go']) ? 1 : 0;
+        // captures). On a penalty play (H82): the text's "first down" (an automatic first down:
+        // interference, holding, a personal foul), or a defence penalty whose distance reaches
+        // yards_to_go (an offside at 3rd and 4); never on an offence penalty.
+        if ($is_penalty_play) {
+            $is_first_down = (stripos($play['result_text'], 'first down') !== false
+                              || ($flags['sets_penalty_defense'] && $play['yards_to_go'] !== null
+                                  && $penalty_yards !== null && $penalty_yards >= $play['yards_to_go'])) ? 1 : 0;
+        } else {
+            $is_first_down = ($play['yards_to_go'] !== null && $play['yards_gained'] !== null
+                               && $play['yards_gained'] >= $play['yards_to_go']) ? 1 : 0;
+        }
 
         $_cp_play_upsert->execute([
             ':game_id' => $_cp_game_id, ':quarter' => $play['quarter'], ':play_seq' => $_cp_play_seq,
@@ -631,9 +663,9 @@ do {
             ':field_position' => $play['field_position'], ':down' => $play['down'],
             ':yards_to_go' => $play['yards_to_go'], ':formation' => $play['formation'],
             ':off_call' => $play['off_call'], ':def_call' => $play['def_call'],
-            ':result_text' => $play['result_text'], ':yards_gained' => $play['yards_gained'],
+            ':result_text' => $play['result_text'], ':yards_gained' => $play['yards_gained'], ':penalty_yards' => $penalty_yards,
             ':is_touchdown' => $flags['sets_touchdown'], ':is_fumble' => $flags['sets_fumble'], ':is_interception' => $flags['sets_interception'],
-            ':is_turnover' => $flags['sets_turnover'], ':is_penalty' => ($flags['sets_penalty_offense'] || $flags['sets_penalty_defense']) ? 1 : 0,
+            ':is_turnover' => $flags['sets_turnover'], ':is_penalty' => $is_penalty_play,
             ':is_penalty_offense' => $flags['sets_penalty_offense'], ':is_penalty_defense' => $flags['sets_penalty_defense'],
             ':is_sack' => $flags['sets_sack'], ':is_hurry' => $flags['sets_hurry'],
             ':is_blitz_pickup' => $flags['sets_blitz_pickup'], ':is_blitz_no_pickup' => $flags['sets_blitz_no_pickup'],
@@ -946,6 +978,29 @@ function extract_yards_gained($cleaned_result, $raw_result) {
         }
     }
     return $total;
+}
+
+// penalty_yards (H82, 30 Oct 2026): the penalty's distance as the report prints it, a positive
+// number of yards charged to the offending team (the NFL's shape: a penalty play records no
+// attempt, and penalty yardage is its own category). Every penalty shape the reports print
+// carries the number as "<of|for|and> N yard(s)": "for loss of 5 yards", "for penalty of 5
+// yards", "penalty of 5 yards against defence", "for 15 yards and first down", "for first down
+// and 11 yard penalty". A half-the-distance penalty at the goal line prints "for loss of one
+// yard" (1) or "for loss of less than a yard" (0: the game prints the defence's version of the
+// same situation as "penalty of 0 yards"). Measured over every penalty text in both tables
+// (SESSION_20261030_2.md s2); the legacy repair ran this function verbatim over the same texts.
+// NULL when no distance is readable: the caller stores it and the CHECK constraint refuses it.
+function extract_penalty_yards($cleaned_result) {
+    if (preg_match('/\b(?:of|for|and) (\d+) yards?\b/i', $cleaned_result, $m)) {
+        return (int)$m[1];
+    }
+    if (preg_match('/\bof one yard\b/i', $cleaned_result)) {
+        return 1;
+    }
+    if (preg_match('/\bof less than a yard\b/i', $cleaned_result)) {
+        return 0;
+    }
+    return null;
 }
 
 // Loads every row from play_text_patterns once per page load, longest pattern_text first so
