@@ -1,6 +1,10 @@
 <?php
-// gp_identity.php · rev 001 · 17 Aug 2026 · role: shared helper · authority: derived
+// gp_identity.php · rev 002 · 31 Oct 2026 · role: shared helper · authority: derived
 // Task A5. Week-grain team-identity resolution for reader-facing pages.
+// rev 002 (H83, 31 Oct 2026): GP_IDENT_DISPLAY_ALIAS and gp_ident_display(). A stored identity name is the name the
+// week's report printed (H81; Alan Q6 of 31 Oct 2026 session2), so the extract pages can resolve the team by that name.
+// Where the game misprinted a name, the row keeps the misprint and the pages show the corrected name: the alias is
+// display only and is applied in gp_ident_name(), the one place every reader page picks a historical name.
 //
 // ------------------------------------------------------------------
 // WHY THIS FILE EXISTS
@@ -67,6 +71,12 @@ if (!defined('GP_IDENT_GAME_TITLE'))     define('GP_IDENT_GAME_TITLE', 'historic
 // and so a future change has somewhere obvious to hook into.
 if (!defined('GP_IDENT_FRANCHISE_PAGE')) define('GP_IDENT_FRANCHISE_PAGE', 'current');
 
+// H83 (31 Oct 2026): stored name => the name the pages show. Display only: franchise_identities keeps what the report
+// printed. One entry: the reports of NFLAR 2031 wk1 to wk8 print "Washington Commands" (8 rows, franchise 2014).
+if (!defined('GP_IDENT_DISPLAY_ALIAS'))  define('GP_IDENT_DISPLAY_ALIAS', [
+    'Washington Commands' => 'Washington Commanders',
+]);
+
 // ==================================================================
 // HELPERS
 // ==================================================================
@@ -89,12 +99,21 @@ function gp_ident_join($fi_alias, $franchise_expr, $week_expr) {
 }
 
 /**
+ * The name a page shows for a stored identity name: its GP_IDENT_DISPLAY_ALIAS entry, or the name itself (H83).
+ */
+function gp_ident_display($identity_name) {
+    $alias = GP_IDENT_DISPLAY_ALIAS;
+    return $alias[$identity_name] ?? $identity_name;
+}
+
+/**
  * Pick the name to display, given both candidates and a toggle value.
  * Falls back to the current label whenever the historical one is absent or empty.
+ * The historical name goes through gp_ident_display() (H83); the current label is franchises.label and needs no alias.
  */
 function gp_ident_name($mode, $identity_name, $current_label) {
     if ($mode === 'historical' && $identity_name !== null && $identity_name !== '') {
-        return $identity_name;
+        return gp_ident_display($identity_name);
     }
     return $current_label;
 }
