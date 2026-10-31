@@ -1,6 +1,16 @@
 <?php
 // don't delete this line, this must be the first line of your code
 if(!defined('custom_page_from_inclusion')) { die(); }
+// H80 (31-Oct-2026, Alan Q3 of 31 Oct 2026 session1): is_touchdown means the OFFENCE scored (H33), and a play_text_patterns
+// row cannot see who was on offence. "QB fumbled for loss of 1 yard and not recovered is touchdown Green Bay Packers" is
+// the defence's score. The side that scored is now read from the score the report prints beside the play (score_after,
+// "16-6 PE": both totals and the leader's code; no code when level): each team's total after the play against its total
+// after the previous scoring play of the game, by pbp_scoring_side() below. When the side that scored is not the offence,
+// is_touchdown is 0. No team NAME is compared: the play text names Tampa Bay "Buccaneers" where its identity and the
+// header say "Buccs". Anything the score cannot settle (an unreadable score, a leader code that is neither team, both or
+// neither total rising) leaves the flag as the patterns set it and is listed under the result. Proved on every stored
+// play before it was built (SESSION_20261031_1.md s4: 941 scoring plays, every one settled; 705 "is touchdown" plays,
+// 671 the offence's, 34 the defence's). Nothing else changed.
 // H82 (30-Oct-2026, Alan Q2 of 30 Oct 2026 session1, Q3 to Q5 of session2; the NFL's Guide for Statisticians, NZ1):
 // a penalty play is not an attempt and its yardage is a separate category charged to the offending team. On a play
 // flagged is_penalty_offense or is_penalty_defense the parser now writes yards_gained NULL and penalty_yards = the
@@ -595,6 +605,12 @@ do {
     $_cp_identity_log = [];
     $_cp_side_cache = [];
 
+    // H80: each team's total after the last scoring play read so far (0-0 before the first);
+    // null while a score could not be read, until the next readable one restarts the count.
+    $_cp_score_prev = [$_cp_home_id => 0, $_cp_away_id => 0];
+    $_cp_td_log = [];
+    $_cp_td_cleared = 0;
+
     foreach ($_cp_all_plays as $play) {
         $_cp_play_seq++;
 
@@ -620,6 +636,38 @@ do {
         }
 
         $flags = apply_play_text_patterns($play['result_text'], $_cp_patterns);
+
+        // H80: the side that scored, from the printed score; a touchdown the offence did not
+        // score is not flagged. The leader's code is resolved exactly as a side code is.
+        if ($play['score_after'] !== null && $play['score_after'] !== '') {
+            $_cp_parsed = pbp_parse_score($play['score_after']);
+            $_cp_leader = null;
+            if ($_cp_parsed !== null && $_cp_parsed[2] !== null) {
+                $_cp_code = $_cp_parsed[2];
+                if (!array_key_exists($_cp_code, $_cp_side_cache)) {
+                    $_cp_side_cache[$_cp_code] = pbp_resolve_side_code(
+                        $conn, $_cp_week_id, $_cp_code, $_cp_team_code_stmt,
+                        $_cp_home_id, $_cp_home_label, $_cp_away_id, $_cp_away_label,
+                        $_cp_identity_log
+                    );
+                }
+                $_cp_leader = $_cp_side_cache[$_cp_code];
+            }
+            $_cp_why = '';
+            $_cp_scorer = pbp_scoring_side($_cp_parsed, $_cp_leader, $_cp_home_id, $_cp_away_id, $_cp_score_prev, $_cp_why);
+            $_cp_where = "Q{$play['quarter']} play $_cp_play_seq, score " . $play['score_after'];
+            if ($flags['sets_touchdown']) {
+                if ($_cp_scorer === null) {
+                    $_cp_td_log[] = "$_cp_where: touchdown flag left as the patterns set it -- $_cp_why";
+                } elseif ($offense_id === null) {
+                    $_cp_td_log[] = "$_cp_where: touchdown flag left as the patterns set it -- the offence is unknown";
+                } elseif ($_cp_scorer !== $offense_id) {
+                    $flags['sets_touchdown'] = 0;
+                    $_cp_td_cleared++;
+                    $_cp_td_log[] = "$_cp_where: the defence scored, so this is not the offence's touchdown (flag cleared)";
+                }
+            }
+        }
 
         // An incomplete pass genuinely gains 0 yards -- that's a known fact, not an absence of
         // information, so NULL is the wrong representation here even though no "at/for gain/loss
@@ -700,6 +748,15 @@ do {
         echo "<div class='w3-panel w3-pale-yellow w3-text-black w3-round-large'>";
         echo "<p><strong>Side-code resolution notes (" . count($_cp_identity_log) . "):</strong></p><ul>";
         foreach ($_cp_identity_log as $line) { echo "<li>" . htmlspecialchars($line) . "</li>"; }
+        echo "</ul></div>";
+    }
+
+    // H80: every touchdown flag the score cleared or could not settle. Silence means every
+    // touchdown on this page was the offence's by the score.
+    if ($_cp_td_log) {
+        echo "<div class='w3-panel w3-pale-yellow w3-text-black w3-round-large'>";
+        echo "<p><strong>Touchdown notes (" . count($_cp_td_log) . "; $_cp_td_cleared cleared as the defence's score):</strong></p><ul>";
+        foreach ($_cp_td_log as $line) { echo "<li>" . htmlspecialchars($line) . "</li>"; }
         echo "</ul></div>";
     }
 
@@ -1000,6 +1057,66 @@ function extract_penalty_yards($cleaned_result) {
     if (preg_match('/\bof less than a yard\b/i', $cleaned_result)) {
         return 0;
     }
+    return null;
+}
+
+// H80 (31 Oct 2026): the score the report prints beside a scoring play, "16-6 PE" or "7-10 PI"
+// (both totals and the leader's code; which total comes first varies by league, so the leader
+// holds the larger) or "10-10" (level, no code). Returns [first, second, code or null], or null
+// when the text is not that shape.
+function pbp_parse_score($score_after) {
+    if (!preg_match('/^(\d+)-(\d+)(?:\s+([A-Za-z]{1,4}))?$/', trim((string)$score_after), $m)) {
+        return null;
+    }
+    return [(int)$m[1], (int)$m[2], (isset($m[3]) && $m[3] !== '') ? $m[3] : null];
+}
+
+// H80 (31 Oct 2026): which side scored on this play, from the totals. $parsed is
+// pbp_parse_score()'s result; $leader_fid the franchise the leader's code resolves to (null
+// when there is no code or it did not resolve); $prev each team's total after the previous
+// scoring play (null when unknown), updated here to the totals after this one. Returns the
+// franchise id whose total rose while the other's stood still, or null with $why saying why
+// it cannot be told: refuse, never guess.
+function pbp_scoring_side($parsed, $leader_fid, $home_id, $away_id, &$prev, &$why) {
+    $why = '';
+    if ($parsed === null) {
+        $why = 'the score is not readable';
+        $prev = null;
+        return null;
+    }
+    [$x, $y, $code] = $parsed;
+    if ($code === null) {
+        if ($x !== $y) {
+            $why = 'the score names no leader but is not level';
+            $prev = null;
+            return null;
+        }
+        $now = [$home_id => $x, $away_id => $x];
+    } else {
+        if ($leader_fid !== $home_id && $leader_fid !== $away_id) {
+            $why = "the leader's code '$code' is neither team's";
+            $prev = null;
+            return null;
+        }
+        if ($x === $y) {
+            $why = "the score is level but names a leader ('$code')";
+            $prev = null;
+            return null;
+        }
+        $other = ($leader_fid === $home_id) ? $away_id : $home_id;
+        $now = [$leader_fid => max($x, $y), $other => min($x, $y)];
+    }
+    if ($prev === null) {
+        $why = 'the previous score in this game could not be read';
+        $prev = $now;
+        return null;
+    }
+    $dh = $now[$home_id] - $prev[$home_id];
+    $da = $now[$away_id] - $prev[$away_id];
+    $prev = $now;
+    if ($dh > 0 && $da === 0) { return $home_id; }
+    if ($da > 0 && $dh === 0) { return $away_id; }
+    $why = "the totals do not show one side scoring (home $dh, away $da since the previous score)";
     return null;
 }
 
