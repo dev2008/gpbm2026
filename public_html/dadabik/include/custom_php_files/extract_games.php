@@ -367,6 +367,11 @@ function a4_resolve_franchise_by_code_at_week($conn, $week_id, $team_code, &$log
 // that is deliberate, and the manual route is DaDaBIK's admin UI on this table.
 // Stored rows with no regular-season games behind them are never read here, so never touched.
 //
+// THE LABEL (H37, 31 Oct 2026; Alan, Q4 and Q5 of 31 Oct 2026 session4): `source` says where a row's figures came from:
+// 'derived' from `games`; 'legacy_rollup' a legacy season total with no regular-season game behind it; 'legacy_partial' a
+// legacy season total with some, but fewer, regular-season games behind it. A row this writer rewrites is from `games`, so
+// the UPDATE sets 'derived' with the figures: a legacy row the guard lets through never keeps a legacy label.
+//
 // Regular season = game_types.phase = 'regular' (proved equal to schema.md §9's legacy rules
 // by A6 across every game). The SQL is kept portable on purpose: the A6b fixture test runs this
 // exact block against SQLite before it is sent. The block is located by its BEGIN/END markers.
@@ -411,7 +416,7 @@ function a6_refresh_franchise_season_records($conn, $season_id, $dry_run = false
 
     $upd = $conn->prepare(
         "UPDATE franchise_season_records
-         SET wins = :w, losses = :l, ties = :t, points_for = :pf, points_against = :pa
+         SET wins = :w, losses = :l, ties = :t, points_for = :pf, points_against = :pa, source = 'derived'
          WHERE season_record_id = :id");
     $ins = $conn->prepare(
         "INSERT INTO franchise_season_records
