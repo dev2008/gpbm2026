@@ -300,9 +300,10 @@ echo "</table><br>";
 // legacy_rollup seasons -- schema.md section 9 -- which have a season-end record but no
 // individual games rows behind them) PLUS whichever season currently holds this franchise's
 // most recent games row, in case that season hasn't picked up a franchise_season_records row
-// yet -- that table reads like a settled/aggregated one (built once per finished season), not
-// necessarily kept live while a season is still being played, so don't assume the current
-// season is already in it.
+// yet. H38 (1 Nov 2026): since A6b (3 Oct 2026) extract_games.php keeps that table live, adding a
+// franchise's row for a season at its first scored regular-season game, so the current season is
+// normally there. A season whose only games so far are preseason (week 0) has games rows and no
+// record row yet; this lookup is what still shows it.
 $_cp_sql = "SELECT fsr.season_id, s.label AS season_label, s.year
             FROM franchise_season_records fsr
             JOIN seasons s ON s.season_id = fsr.season_id
