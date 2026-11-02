@@ -209,12 +209,15 @@ function render_win_breakdown($conn, $league_id, $game_type_ids, $bowl_name, $no
 
     $bn = htmlspecialchars($bowl_name);
     $nn = htmlspecialchars($noun);
-    echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:70%;min-width:520px'>";
-    echo "<tr><th>$nn with multiple $bn wins (" . count($multi) . "):</th><td>" . implode(', ', $multi) . "</td></tr>";
-    echo "<tr><th>$nn with one $bn win (" . count($single) . "):</th><td>" . implode(', ', $single) . "</td></tr>";
-    echo "<tr><th>$nn that appeared but never won (" . count($never_won) . "):</th><td>" . implode(', ', $never_won) . "</td></tr>";
-    echo "<tr><th>$nn that never appeared (" . count($never_appeared) . "):</th><td>" . implode(', ', $never_appeared) . "</td></tr>";
-    echo "</table><br>";
+    // H69 (Alan, Q2 of 2 Nov 2026 session3): as wide as its content up to the page; the labels on one line, the list cells
+    // wrap (team.php's honours shape), instead of width:70%.
+    echo "<div style='overflow-x:auto'>";
+    echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:auto;max-width:100%;white-space:nowrap'>";
+    echo "<tr><th>$nn with multiple $bn wins (" . count($multi) . "):</th><td style='white-space:normal'>" . implode(', ', $multi) . "</td></tr>";
+    echo "<tr><th>$nn with one $bn win (" . count($single) . "):</th><td style='white-space:normal'>" . implode(', ', $single) . "</td></tr>";
+    echo "<tr><th>$nn that appeared but never won (" . count($never_won) . "):</th><td style='white-space:normal'>" . implode(', ', $never_won) . "</td></tr>";
+    echo "<tr><th>$nn that never appeared (" . count($never_appeared) . "):</th><td style='white-space:normal'>" . implode(', ', $never_appeared) . "</td></tr>";
+    echo "</table></div><br>";
 }
 
 // Total wins by conference (and division, pro only) -- every conference/division that's ever
@@ -237,8 +240,10 @@ function render_conference_division_record($conn, $league_id, $game_type_ids, $s
         $conf_parts[] = htmlspecialchars($r['conference']) . " {$r['wins']}";
     }
 
-    echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:70%;min-width:520px'>";
-    echo "<tr><th>Record by Conference:</th><td>" . implode(', ', $conf_parts) . "</td></tr>";
+    // H69: the list cells wrap, as above
+    echo "<div style='overflow-x:auto'>";
+    echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:auto;max-width:100%;white-space:nowrap'>";
+    echo "<tr><th>Record by Conference:</th><td style='white-space:normal'>" . implode(', ', $conf_parts) . "</td></tr>";
 
     if ($show_division) {
         $sql = "SELECT f.division, SUM(CASE WHEN p.score > p.opp_score THEN 1 ELSE 0 END) AS wins
@@ -254,10 +259,10 @@ function render_conference_division_record($conn, $league_id, $game_type_ids, $s
         foreach ($div_rows as $r) {
             $div_parts[] = htmlspecialchars($r['division']) . " {$r['wins']}";
         }
-        echo "<tr><th>Record by Division:</th><td>" . implode(', ', $div_parts) . "</td></tr>";
+        echo "<tr><th>Record by Division:</th><td style='white-space:normal'>" . implode(', ', $div_parts) . "</td></tr>";
     }
 
-    echo "</table><br>";
+    echo "</table></div><br>";
 }
 
 // The six game-level stat categories shared by every bowl view (single bowl or "All Bowls").
@@ -267,7 +272,9 @@ function render_conference_division_record($conn, $league_id, $game_type_ids, $s
 function render_game_stat_table($conn, $game_type_ids, $show_bowl_name = false) {
     $persp = perspectives_sql($game_type_ids);
 
-    echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:70%;min-width:520px'>";
+    // H69: as wide as its content, no cell wrapping (each line of a cell is short; <br> still breaks them)
+    echo "<div style='overflow-x:auto'>";
+    echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:auto;white-space:nowrap'>";
 
     render_stat_row($conn, $persp, 'Biggest margin of victory',
         "(CAST(p.score AS SIGNED) - CAST(p.opp_score AS SIGNED)) DESC", null, true, $show_bowl_name);
@@ -282,7 +289,7 @@ function render_game_stat_table($conn, $game_type_ids, $show_bowl_name = false) 
     render_stat_row($conn, $persp, 'Most points in defeat',
         'p.score DESC', 'p.score < p.opp_score', false, $show_bowl_name);
 
-    echo "</table><br>";
+    echo "</table></div><br>";
 }
 
 // season shown WITHOUT the week number -- every bowl game happens at a fixed week (20 for
@@ -327,7 +334,9 @@ function render_stat_row($conn, $persp, $label, $order_by, $where_extra, $show_m
 // College-only "All Bowls" overview: one row per bowl type, each cell listing every school's
 // record in that specific bowl -- matches the old fc_bowlrecords.php overview table.
 function render_all_bowls_summary($conn, $league_id, $college_bowls) {
-    echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:70%;min-width:520px'>";
+    // H69: the list cells wrap, as render_win_breakdown()'s table
+    echo "<div style='overflow-x:auto'>";
+    echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:auto;max-width:100%;white-space:nowrap'>";
     foreach ($college_bowls as $code => $info) {
         if ($code === 'all') {
             continue;
@@ -349,8 +358,8 @@ function render_all_bowls_summary($conn, $league_id, $college_bowls) {
         foreach ($rows as $r) {
             $parts[] = htmlspecialchars($r['label']) . " {$r['wins']}-{$r['losses']}";
         }
-        echo "<tr><th>" . htmlspecialchars($bowl_name) . ":</th><td>" . implode(', ', $parts) . "</td></tr>";
+        echo "<tr><th>" . htmlspecialchars($bowl_name) . ":</th><td style='white-space:normal'>" . implode(', ', $parts) . "</td></tr>";
     }
-    echo "</table><br>";
+    echo "</table></div><br>";
 }
 ?>

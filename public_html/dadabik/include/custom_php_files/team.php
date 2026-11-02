@@ -213,7 +213,10 @@ echo "<b>" . htmlspecialchars($_cp_franchise['league_code'] . ' ' . $_cp_franchi
 echo "</div>";
 
 // -------------------- Honors table --------------------
-echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:55%;min-width:480px'>";
+// H69 (Alan, Q3 of 2 Nov 2026 session2): as wide as its content up to the page, the labels on one line and
+// only the year lists wrapping (render_honor_row()'s cell), instead of width:55%, which wrapped the labels.
+echo "<div style='overflow-x:auto'>";
+echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:auto;max-width:100%;white-space:nowrap'>";
 
 $_cp_league_champ_label = $_cp_is_pro ? 'Superbowl Champions' : 'National Championships';
 render_honor_row($conn, $_cp_franchise_id, 'LEAGUE_WINNER', $_cp_league_champ_label);
@@ -293,7 +296,7 @@ render_season_extreme_row($conn, $_cp_franchise_id, 'losses', 'Most games lost i
 render_season_extreme_row($conn, $_cp_franchise_id, 'points_for', 'Most points scored in a Season', false);
 render_season_extreme_row($conn, $_cp_franchise_id, 'points_against', 'Most points conceded in a Season', false);
 
-echo "</table><br>";
+echo "</table></div><br>";
 
 // -------------------- Season selector --------------------
 // Dropdown list: every season in franchise_season_records (career-long, includes
@@ -483,7 +486,9 @@ JS;
 echo "<div class='w3-panel w3-theme'><h1 class='w3-text-white' style='text-shadow:1px 1px 0 #444'>"
    . "<b>Season by Season Records</b></h1></div>";
 
-echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:55%;min-width:480px'>";
+// H69: as wide as its content, no cell wrapping, scrolling sideways on a narrow window (the game log's P16 shape).
+echo "<div style='overflow-x:auto'>";
+echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:auto;white-space:nowrap'>";
 echo "<tr><th>Season</th><th>Coach</th><th>Record</th><th>Points</th></tr>";
 
 $_cp_league_champ_years = get_honor_years($conn, $_cp_franchise_id, 'LEAGUE_WINNER');
@@ -531,7 +536,7 @@ foreach ($_cp_seasons as $s) {
     echo "<tr><td>$season_text</td><td>$coach_text</td><td>$record_text</td><td>$points_text</td></tr>";
 }
 
-echo "</table>";
+echo "</table></div>";
 $_cp_champ_word = $_cp_is_pro ? 'Superbowl' : 'National Championship';
 echo "<p><strong>*</strong> indicates won $_cp_champ_word, <em>italics</em> indicate won Conference.</p>";
 echo "</div>";
@@ -558,7 +563,8 @@ function get_honor_years($conn, $franchise_id, $code) {
 function render_honor_row($conn, $franchise_id, $code, $label) {
     $years = get_honor_years($conn, $franchise_id, $code);
     $years_display = empty($years) ? '-' : implode(' ', $years);
-    echo "<tr><th>$label: (" . count($years) . ")</th><td>$years_display</td></tr>";
+    // H69: the one cell in the honours table that wraps (the table is white-space:nowrap)
+    echo "<tr><th>$label: (" . count($years) . ")</th><td style='white-space:normal'>$years_display</td></tr>";
 }
 
 // Win-loss record between a winner honor and its matching runner-up honor,

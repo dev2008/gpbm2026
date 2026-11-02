@@ -569,13 +569,16 @@ echo "</div>";
 if (!empty($_cp_seasons_coached)) {
     echo "<div class='w3-panel w3-theme'><h1 class='w3-text-white' style='text-shadow:1px 1px 0 #444'>"
        . "<b>Career Record</b></h1></div>";
-    echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:55%;min-width:420px'>";
+    // H69 (Alan, Q4 of 2 Nov 2026 session2): this page's three tables as wide as their content, no cell wrapping,
+    // scrolling sideways on a narrow window (team.php's game log, P16), instead of width:55%.
+    echo "<div style='overflow-x:auto'>";
+    echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:auto;white-space:nowrap'>";
     echo "<tr><th>&nbsp;</th><th>Record</th><th>Points</th></tr>";
     echo career_record_row('Overall', $_cp_record_overall);
     foreach ($_cp_record_by_league as $lg => $rec) {
         echo career_record_row($lg, $rec);
     }
-    echo "</table><br>";
+    echo "</table></div><br>";
 }
 
 // -------------------- Championships & Honours --------------------
@@ -584,14 +587,15 @@ if (!empty($_cp_honor_counts)) {
        . "<b>Championships &amp; Honours</b></h1></div>";
     foreach ($_cp_honor_counts as $lc => $league_data) {
         echo "<h3 style='margin-top:16px'>" . htmlspecialchars($league_data['name']) . "</h3>";
-        echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:55%;min-width:420px'>";
+        echo "<div style='overflow-x:auto'>";
+        echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:auto;white-space:nowrap'>";
         foreach (honor_display_labels($lc) as $bucket => $label) {
             if (!empty($league_data['counts'][$bucket])) {
                 echo "<tr><td style='padding:4px 8px'>" . htmlspecialchars($label) . "</td>"
                    . "<td style='padding:4px 8px'>{$league_data['counts'][$bucket]}</td></tr>";
             }
         }
-        echo "</table>";
+        echo "</table></div>";
     }
     echo "<br>";
 }
@@ -616,12 +620,13 @@ foreach ($_cp_franchises as $f) {
 
 foreach ($_cp_by_league as $_cp_league_name => $_cp_league_franchises) {
     echo "<h3 style='margin-top:16px'>" . htmlspecialchars($_cp_league_name) . "</h3>";
-    echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:55%;min-width:400px'>";
+    echo "<div style='overflow-x:auto'>";
+    echo "<table class='w3-table w3-striped w3-bordered w3-theme-l5 w3-text-black' style='width:auto;white-space:nowrap'>";
     foreach ($_cp_league_franchises as $f) {
         $link = build_team_link($f['league_code'], $f['franchise_id']);
         echo "<tr><td style='padding:4px 8px'><a href='$link' style='color:inherit;text-decoration:underline'>" . htmlspecialchars($f['label']) . "</a></td></tr>";
     }
-    echo "</table>";
+    echo "</table></div>";
 }
 // Breathing room after the last table, before the outer panel closes -- the h3's margin-top
 // above spaces multiple league tables apart from each other, but nothing was giving the final
