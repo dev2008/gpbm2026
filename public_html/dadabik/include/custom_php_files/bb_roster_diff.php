@@ -1,5 +1,6 @@
 <?php
-// bb_roster_diff.php · rev 001 · 23 Oct 2026 · role: helper (functions only, included by bb_roster_compare.php and the B4 CLI) · authority: derived
+// bb_roster_diff.php · rev 002 · 2 Nov 2026 · role: helper (functions only, included by bb_roster_compare.php and the B4 CLI) · authority: derived
+// rev 002 (H84, 2 Nov 2026): the inclusion guard, the command line allowed: a web request that is not DaDaBIK's inclusion stops at the guard (security.md s4a; Alan, Q7 of 1 Nov 2026 session1).
 // rev 001: first issue. Item B4 (Alan, Q1 to Q7 of 23 Oct 2026 session1; GameplanPBM/20261023/session1/SESSION_20261023_1.md s2).
 //
 // ------------------------------------------------------------------
@@ -19,6 +20,8 @@
 // by comparing the ENUM columns in SQL: MariaDB compares two ENUM columns as strings, so Fa > Av reads as a rise there
 // (SESSION_20261023_1.md s3).
 // ------------------------------------------------------------------
+
+if (!defined('custom_page_from_inclusion') && PHP_SAPI !== 'cli') { exit; }
 
 /** The rank of a printed skill grade, 1 (Po) to 6 (WC); 0 for anything else. */
 function bb_skill_rank(?string $g): int {

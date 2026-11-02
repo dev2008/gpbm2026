@@ -1,5 +1,6 @@
 <?php
-// gp_identity.php · rev 002 · 31 Oct 2026 · role: shared helper · authority: derived
+// gp_identity.php · rev 003 · 2 Nov 2026 · role: shared helper · authority: derived
+// rev 003 (H84, 2 Nov 2026): the inclusion guard, the command line allowed: a web request that is not DaDaBIK's inclusion stops at the guard (security.md s4a; Alan, Q7 of 1 Nov 2026 session1).
 // Task A5. Week-grain team-identity resolution for reader-facing pages.
 // rev 002 (H83, 31 Oct 2026): GP_IDENT_DISPLAY_ALIAS and gp_ident_display(). A stored identity name is the name the
 // week's report printed (H81; Alan Q6 of 31 Oct 2026 session2), so the extract pages can resolve the team by that name.
@@ -36,6 +37,8 @@
 // loudly, which is the intended behaviour -- a page that silently fell back to franchises.label
 // would look correct and be wrong, which is the defect this file exists to remove.
 // ------------------------------------------------------------------
+
+if (!defined('custom_page_from_inclusion') && PHP_SAPI !== 'cli') { exit; }
 
 // ==================================================================
 // INTERNAL TOGGLES -- not exposed to the UI, not read from the query string, not per-user.

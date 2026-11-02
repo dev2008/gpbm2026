@@ -1,5 +1,6 @@
 <?php
-// gp_league.php · rev 002 · 11 Oct 2026 · role: shared helper · authority: derived
+// gp_league.php · rev 003 · 2 Nov 2026 · role: shared helper · authority: derived
+// rev 003 (H84, 2 Nov 2026): the inclusion guard, the command line allowed: a web request that is not DaDaBIK's inclusion stops at the guard (security.md s4a; Alan, Q7 of 1 Nov 2026 session1).
 // Item H52 (NZ7 of 3 Oct 2026; ruled Q8 of 6 Oct 2026). The one place that reads `league=` from the URL.
 // rev 002: an unserved code starting NCAA falls back to NCAA5, one starting NFL to NFLAR (Alan, 11 Oct 2026).
 //
@@ -24,6 +25,8 @@
 // __DIR__ . '/gp_league.php' (the gp_identity.php precedent, same reasons). Deploy it FIRST:
 // the three pages include it unguarded and fail loudly without it, by design.
 // ------------------------------------------------------------------
+
+if (!defined('custom_page_from_inclusion') && PHP_SAPI !== 'cli') { exit; }
 
 // The leagues these pages serve, code => toggle label, in toggle order. The first is the default.
 function gp_leagues_served() {

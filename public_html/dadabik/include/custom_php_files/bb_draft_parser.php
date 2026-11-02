@@ -1,5 +1,6 @@
 <?php
 // bb_draft_parser.php
+// rev 002 · 2 Nov 2026 (H84): the inclusion guard, the command line allowed: a web request that is not DaDaBIK's inclusion stops at the guard (security.md s4a; Alan, Q7 of 1 Nov 2026 session1). No earlier revision line.
 // Gameplan PBM · Task B1 (baseball draft page) · D4 -- the draft-turn parser classes.
 //
 // rev 001 · 24 Aug 2026 · role: code, written by build chat · authority: derived
@@ -47,6 +48,8 @@
 //     Team Report parser exists.
 
 declare(strict_types=1);
+
+if (!defined('custom_page_from_inclusion') && PHP_SAPI !== 'cli') { exit; }
 
 // ============================================================================
 // DTOs

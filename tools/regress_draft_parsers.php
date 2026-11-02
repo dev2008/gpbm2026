@@ -1,10 +1,11 @@
 <?php
+// tools/regress_draft_parsers.php · rev 002 · 2 Nov 2026 · H84: moved out of include/custom_php_files/ (Alan, Q7 of 1 Nov 2026 session1); it reads the parser by its path in the repo. Run: php /var/www/gpbm/tools/regress_draft_parsers.php
 // Standalone regression harness for the D4 draft-parser classes -- extracts the pure-parsing
 // classes from bb_draft_parser.php (no DB calls) and runs them against the exact literal sample
 // text quoted in tasks/B1-baseball-draft-parser.md §4/§4a, so the regex logic is checked against
 // real game text, not invented text.
 
-$src = file_get_contents(__DIR__ . '/bb_draft_parser.php');
+$src = file_get_contents(__DIR__ . '/../public_html/dadabik/include/custom_php_files/bb_draft_parser.php');
 
 // strict_types can only be declared as the file's own first statement, not inside an eval() --
 // stripped here since this harness eval's the source into an already-running script.

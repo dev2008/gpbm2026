@@ -1,5 +1,6 @@
 <?php
-// bb_roster_parser.php · rev 003 · 23 Oct 2026 · role: helper, included by extract_baseball_roster.php and the runner's CLI
+// bb_roster_parser.php · rev 004 · 2 Nov 2026 · role: helper, included by extract_baseball_roster.php and the runner's CLI
+// rev 004 (H84, 2 Nov 2026): the inclusion guard, the command line allowed: a web request that is not DaDaBIK's inclusion stops at the guard (security.md s4a; Alan, Q7 of 1 Nov 2026 session1).
 //                       (scripts/gpbm_b2_roster_cli.php) · authority: B2 (Alan, Q2 to Q7 of 22 Oct 2026 session2;
 //                       GameplanPBM/20261022/session2/SESSION_20261022_2.md s2, s3); B7 (Alan, Q1 of 23 Oct 2026 session3)
 // rev 003: B7 (Alan, Q1 of 23 Oct 2026 session3): Exp may be printed with a * after it ("15*": the player would not become a
@@ -32,6 +33,8 @@
 //   - An injured player's Inj is wrapped in style tags (`   0<Z>  14<C>   19 LP`); <Z>, <C> and <B> are removed anywhere.
 //   - Uploads 63 to 71 hold CRLF line ends; the rest LF. Both are read.
 // ------------------------------------------------------------------
+
+if (!defined('custom_page_from_inclusion') && PHP_SAPI !== 'cli') { exit; }
 
 if (!defined('BB_ROSTER_COLS')) {
     // the parsed columns, in table order after the key; a row is unchanged when every one of these is equal

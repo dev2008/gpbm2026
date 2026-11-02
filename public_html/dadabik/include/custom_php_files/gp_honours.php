@@ -1,5 +1,6 @@
 <?php
-// gp_honours.php · rev 002 · 22 Oct 2026 · role: shared helper · authority: derived (schema.md s19)
+// gp_honours.php · rev 003 · 2 Nov 2026 · role: shared helper · authority: derived (schema.md s19)
+// rev 003 (H84, 2 Nov 2026): the inclusion guard, the command line allowed: a web request that is not DaDaBIK's inclusion stops at the guard (security.md s4a; Alan, Q7 of 1 Nov 2026 session1).
 // rev 002: an undefeated season includes a perfect one (Alan, 22 Oct 2026, NZ6: "undefeated seasons need to include
 //          perfect seasons"): a perfect season now holds both honours. rev 001 gave it Perfect only.
 // A7. Derives a completed season's franchise_honors from its games and inserts the ones missing.
@@ -44,6 +45,8 @@
 // Included as __DIR__ . '/gp_honours.php' by extract_games.php (guarded: a missing file is reported
 // and the games are still written) and by the CLI. No DaDaBIK dependency: PDO in, arrays out.
 // ------------------------------------------------------------------
+
+if (!defined('custom_page_from_inclusion') && PHP_SAPI !== 'cli') { exit; }
 
 if (!function_exists('gp_honours_refresh')) {
 

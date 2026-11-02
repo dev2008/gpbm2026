@@ -1,5 +1,6 @@
 <?php
-// bb_stats_parser.php · rev 001 · 22 Oct 2026 · role: helper, included by extract_baseball_roster.php and the runner's CLI
+// bb_stats_parser.php · rev 002 · 2 Nov 2026 · role: helper, included by extract_baseball_roster.php and the runner's CLI
+// rev 002 (H84, 2 Nov 2026): the inclusion guard, the command line allowed: a web request that is not DaDaBIK's inclusion stops at the guard (security.md s4a; Alan, Q7 of 1 Nov 2026 session1).
 //                      (scripts/gpbm_b3_stats_cli.php) · authority: B3 (Alan, Q5 to Q9 of 22 Oct 2026 session3;
 //                      GameplanPBM/20261022/session3/SESSION_20261022_3.md s2, s4)
 // rev 001: first issue.
@@ -24,6 +25,8 @@
 //   - Gates on every batting line: TB = H + 2B + 2 x 3B + 3 x HR; BAvg = H / AB cut to 3 places (both held on all 284).
 //   - The Team Pitching and Team Batting lines end each section; they are not stored (Q8) and not summed against.
 // ------------------------------------------------------------------
+
+if (!defined('custom_page_from_inclusion') && PHP_SAPI !== 'cli') { exit; }
 
 if (!defined('BB_STATS_COLS')) {
     // the parsed columns, in table order after the key; a row is unchanged when every one of these is equal
