@@ -1290,13 +1290,13 @@ function resolve_game_type_id($conn, $league_code, $week_number, $header) {
     // Pre-season. In NFLAR, teams eliminated from the playoffs play "Pre-Season" games in
     // weeks 19 and 20 while the others are still competing, in the season that is wrapping up.
     // H48 (3 Oct 2026): those games are type "Pre Season", the SAME type as week 0's -- that is
-    // how every earlier season holds them (type 20 for 2015-2033, 76 games in week 19 and 133
-    // in week 20; type 22 before that), measured 3 Oct 2026. Until H48 this branch asked for
+    // how every earlier season holds them (measured 3 Oct 2026). Until H48 this branch asked for
     // "Consolation Pre-Season", a name game_types has never held for NFLAR, so every such game
     // resolved to null and was skipped: 2034 weeks 19 and 20 lost 4 and 7 games.
-    // lookup_game_type() takes the lowest id of a duplicated name, which for NFLAR is 20, the
-    // id in use since 2015. ? This comment used to say NCAA5 has no equivalent; NCAA5 2038
-    // holds six type-0 Pre Season games, which H47 is to explain.
+    // H68 (2 Nov 2026): each league now has ONE "Pre Season" type, NFLAR 20 and NCAA5 0. The
+    // duplicates split by era, not by kind (NFLAR 22 to 2015, NCAA5 17 to 2012), and were merged
+    // into them on both hosts (schema.md s9). ? This comment used to say NCAA5 has no equivalent;
+    // NCAA5 2038 holds six type-0 Pre Season games, which H47 is to explain.
     if (preg_match('/^Pre[\s-]Season$/i', $normalized)) {
         return lookup_game_type($conn, $league_code, 'Pre Season');
     }
@@ -1353,11 +1353,11 @@ function resolve_game_type_id($conn, $league_code, $week_number, $header) {
 }
 
 function lookup_game_type($conn, $league_code, $name) {
-    // Explicit ORDER BY + LIMIT 1, not relying on MySQL's unspecified default row order --
-    // confirmed there really are two rows both named "Pre Season" for NCAA5 (game_type_id 0
-    // and 17, a historical renumbering -- only 0 is the current, live one; see conversation).
-    // Picking the lowest id has worked so far by coincidence, not by guarantee, for exactly
-    // this reason.
+    // Explicit ORDER BY + LIMIT 1, not relying on MySQL's unspecified default row order.
+    // Until H68 (2 Nov 2026) each league held two rows named "Pre Season" (NFLAR 20 and 22,
+    // NCAA5 0 and 17) and this lowest-id rule picked the current one; H68 merged each pair
+    // into its lower id, so every name is now one row per league. The ORDER BY stays as the
+    // guard if a duplicate name is ever added again.
     $stmt = $conn->prepare(
         "SELECT gt.game_type_id FROM game_types gt
          JOIN leagues l ON l.league_id = gt.league_id
