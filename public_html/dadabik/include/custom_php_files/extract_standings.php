@@ -4,6 +4,10 @@ if(!defined('custom_page_from_inclusion')) { die(); }
 // H26 (18-Aug-2026): no error_handler.php include and no ini_set('display_errors') here.
 // DaDaBIK's bootstrap includes error_handler.php before any custom page runs (measured),
 // and display_errors is a php.ini setting per environment. See H26.
+// H67 (2 Nov 2026): the coach in brackets on every Standings line is stored (standings_weekly.coach_name) and, in a
+// regular-season week, put to gp_coach_apply() for each team; the "Coach changes" panel follows the result. The
+// rule and the merge are in gp_coach.php's header (schema.md s24).
+require_once __DIR__ . '/gp_coach.php';
 
 // --------------------------------------------------------------
 // A4 packages 2 & 3 -- franchise identity at WEEK grain
@@ -394,6 +398,7 @@ function a4_resolve_franchise_by_code_at_week($conn, $week_id, $team_code, &$log
 
 echo "<div class='w3-panel w3-theme-d5 w3-text-white w3-round-xxlarge'>";
 echo "<h1>Extract Standings</h1>";
+echo gp_coach_handle_post($conn, $current_user_is_administrator ?? 0);   // H67: the panel's merge button
 
 $_cp_upload_id = isset($_GET['upload_id']) && $_GET['upload_id'] !== '' ? (int)$_GET['upload_id'] : null;
 
@@ -488,6 +493,7 @@ do {
     // -------------------- Resolve franchises + upsert --------------------
     $_cp_resolved = 0;
     $_cp_unresolved = [];
+    $_cp_coach_rows = [];   // H67: [franchise_id, team name, coach name] per row written
 
     // uploaded_by, not raw_uploads.id_user -- id_user on raw_uploads turned out to be redundant
     // with a pre-existing, already-working DaDaBIK-native column (uploaded_by), see
@@ -510,14 +516,14 @@ do {
 
     $_cp_upsert_sql = "INSERT INTO standings_weekly
             (week_id, franchise_id, wins, losses, ties, points_for, points_against,
-             division_record, streak, conference, division, source, source_upload_id, id_user)
+             division_record, streak, conference, division, coach_name, source, source_upload_id, id_user)
         VALUES (:week_id, :franchise_id, :wins, :losses, :ties, :points_for, :points_against,
-             :division_record, :streak, :conference, :division, 'parsed', :upload_id, :id_user)
+             :division_record, :streak, :conference, :division, :coach_name, 'parsed', :upload_id, :id_user)
         ON DUPLICATE KEY UPDATE
             wins = VALUES(wins), losses = VALUES(losses), ties = VALUES(ties),
             points_for = VALUES(points_for), points_against = VALUES(points_against),
             division_record = VALUES(division_record), streak = VALUES(streak),
-            conference = VALUES(conference), division = VALUES(division),
+            conference = VALUES(conference), division = VALUES(division), coach_name = VALUES(coach_name),
             source = 'parsed', source_upload_id = VALUES(source_upload_id), id_user = VALUES(id_user)";
     $_cp_upsert_stmt = $conn->prepare($_cp_upsert_sql);
 
@@ -573,10 +579,12 @@ do {
         $_cp_upsert_stmt->bindValue(':streak', $row['streak']);
         $_cp_upsert_stmt->bindValue(':conference', $row['conference']);
         $_cp_upsert_stmt->bindValue(':division', $row['division']);
+        $_cp_upsert_stmt->bindValue(':coach_name', $row['coach_name']);
         $_cp_upsert_stmt->bindValue(':upload_id', $_cp_upload_id);
         $_cp_upsert_stmt->bindValue(':id_user', $_cp_upload_owner);
         $_cp_upsert_stmt->execute();
         $_cp_resolved++;
+        $_cp_coach_rows[] = [$franchise_id, $row['team_name'], $row['coach_name']];
     }
 
     echo "<div class='w3-panel w3-pale-green w3-text-black w3-round-large'>";
@@ -584,6 +592,25 @@ do {
     echo "<p><strong>$_cp_identity_rows</strong> franchise_identities rows written/refreshed for this week "
        . "(derived_from = 'week').</p>";
     echo "</div>";
+
+    // -------------------- H67: the coach of each franchise --------------------
+    // Regular-season weeks only: the Standings is the source there, for every team (Alan, 2 Nov 2026, "only in
+    // regular season"); preseason and postseason weeks have no coach rows here, and extract_games.php takes them
+    // from the game lines. A failure is shown, not swallowed: the standings above are already written.
+    $_cp_wk = gp_coach_week($conn, $_cp_week_id);
+    if ($_cp_wk && $_cp_wk['phase'] === 'regular') {
+        $_cp_coach_log = [];
+        try {
+            $_cp_takeovers = gp_coach_takeovers($conn, $_cp_upload_id);
+            foreach ($_cp_coach_rows as [$_cp_f, $_cp_t, $_cp_c]) {
+                gp_coach_apply($conn, $_cp_league_id, $_cp_week_id, $_cp_f, $_cp_c, $_cp_t, 'Standings', $_cp_takeovers, $_cp_coach_log);
+            }
+            echo gp_coach_panel($_cp_coach_log, count($_cp_coach_rows), $current_user_is_administrator ?? 0);
+        } catch (Throwable $_cp_e) {
+            echo "<div class='w3-panel w3-pale-red w3-text-black w3-round-large'><p><strong>Coach changes were NOT checked</strong> "
+               . "(the standings above are unaffected): " . htmlspecialchars($_cp_e->getMessage()) . "</p></div>";
+        }
+    }
 
     // Fallback/refusal log. Rendered whether or not anything else went wrong: a fallback that
     // fires is not an error, but it IS the thing worth reading. 'seed' lines are expected on a
@@ -760,7 +787,7 @@ function parse_standings_pro($text) {
                 $division = $current_divisions[$i] ?? null;
                 $conference = $division ? trim(explode(' ', $division)[0]) : null;
                 $rows[] = [
-                    'team_name' => trim($match[1]),
+                    'team_name' => trim($match[1]), 'coach_name' => trim($match[2]),   // H67: the coach in brackets
                     'wins' => (int)$match[3], 'losses' => (int)$match[4], 'ties' => (int)$match[5],
                     'points_for' => (int)$match[6], 'points_against' => (int)$match[7],
                     'division_record' => $match[8], 'streak' => $match[9],
@@ -784,7 +811,7 @@ function parse_standings_college($text) {
     foreach ($lines as $line) {
         if (preg_match($team_pattern, $line, $match)) {
             $rows[] = [
-                'team_name' => trim($match[1]),
+                'team_name' => trim($match[1]), 'coach_name' => trim($match[2]),   // H67: the coach in brackets
                 'wins' => (int)$match[3], 'losses' => (int)$match[4], 'ties' => (int)$match[5],
                 'points_for' => (int)$match[6], 'points_against' => (int)$match[7],
                 'division_record' => null, 'streak' => $match[8],

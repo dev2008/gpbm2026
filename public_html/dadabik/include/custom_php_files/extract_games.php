@@ -4,6 +4,10 @@ if(!defined('custom_page_from_inclusion')) { die(); }
 // H26 (18-Aug-2026): no error_handler.php include and no ini_set('display_errors') here.
 // DaDaBIK's bootstrap includes error_handler.php before any custom page runs (measured),
 // and display_errors is a php.ini setting per environment. See H26.
+// H67 (2 Nov 2026): in a preseason or postseason week the coach on each game line is put to gp_coach_apply() for
+// both teams, and the "Coach changes" panel follows the result. Regular-season weeks are extract_standings.php's
+// (the Standings names every team's coach). The rule and the merge are in gp_coach.php's header (schema.md s24).
+require_once __DIR__ . '/gp_coach.php';
 
 // --------------------------------------------------------------
 // A4 packages 2 & 3 -- franchise identity at WEEK grain
@@ -506,6 +510,7 @@ function a6_refresh_franchise_season_records($conn, $season_id, $dry_run = false
 
 echo "<div class='w3-panel w3-theme-d5 w3-text-white w3-round-xxlarge'>";
 echo "<h1>Extract Games</h1>";
+echo gp_coach_handle_post($conn, $current_user_is_administrator ?? 0);   // H67: the panel's merge button
 
 $_cp_upload_id = isset($_GET['upload_id']) && $_GET['upload_id'] !== '' ? (int)$_GET['upload_id'] : null;
 
@@ -678,6 +683,7 @@ do {
     $_cp_resolved = 0;
     $_cp_unresolved_teams = [];
     $_cp_unresolved_types = [];
+    $_cp_coach_rows = [];   // H67: [franchise_id, team name, coach name] per team line written
 
     // -------------------- A4 package 2, pass 1: write this week's identity rows --------------------
     // Two passes, deliberately -- this is A4 §11's ordering problem, and the two-pass option is
@@ -783,6 +789,7 @@ do {
 
         foreach ([['home', $home_id, 1], ['away', $away_id, 0]] as [$side, $franchise_id, $is_home]) {
             $t = $game[$side];
+            $_cp_coach_rows[] = [$franchise_id, $game[$side . '_team'], $t['coach']];
             $_cp_stats_upsert->execute([
                 ':game_id' => $game_id, ':franchise_id' => $franchise_id, ':is_home' => $is_home,
                 ':coach_name' => $t['coach'],
@@ -814,6 +821,25 @@ do {
         }
 
         $_cp_resolved++;
+    }
+
+    // -------------------- H67: the coach of each franchise (preseason and postseason weeks) --------------------
+    // The game line is the only coach these reports print outside the regular season (SESSION_20261102_1.md s3e). A
+    // failure is shown, not swallowed: the games above are already written.
+    $_cp_coach_html = '';
+    $_cp_wk = gp_coach_week($conn, $_cp_week_id);
+    if ($_cp_wk && $_cp_wk['phase'] !== 'regular') {
+        $_cp_coach_log = [];
+        try {
+            $_cp_takeovers = gp_coach_takeovers($conn, $_cp_upload_id);
+            foreach ($_cp_coach_rows as [$_cp_f, $_cp_t, $_cp_c]) {
+                gp_coach_apply($conn, $_cp_league_id, $_cp_week_id, $_cp_f, $_cp_c, $_cp_t, 'game line', $_cp_takeovers, $_cp_coach_log);
+            }
+            $_cp_coach_html = gp_coach_panel($_cp_coach_log, count($_cp_coach_rows), $current_user_is_administrator ?? 0);
+        } catch (Throwable $_cp_e) {
+            $_cp_coach_html = "<div class='w3-panel w3-pale-red w3-text-black w3-round-large'><p><strong>Coach changes were NOT checked</strong> "
+                            . "(the games above are unaffected): " . htmlspecialchars($_cp_e->getMessage()) . "</p></div>";
+        }
     }
 
     // -------------------- A6b: keep franchise_season_records current --------------------
@@ -869,6 +895,7 @@ do {
            . "</p>";
     }
     echo "</div>";
+    echo $_cp_coach_html;   // H67
     if ($_cp_hon_error !== null || ($_cp_hon !== null && ($_cp_hon['unmapped'] || $_cp_hon['extras']))) {
         echo "<div class='w3-panel w3-pale-red w3-text-black w3-round-large'>";
         if ($_cp_hon_error !== null) {
