@@ -29,8 +29,8 @@
 // read fails with "Permission denied", which reads like a config error and is not one.
 
 /* ===== Database -- gpbm.uk (A9, 3 Oct 2026) ========================================== */
-$host    = 'shareddb-u.hosting.stackcp.net';   // ✓ measured on 20i, 3 Oct 2026 (SESSION_20261003_5 §5)
-$db_name = 'gpbmuk-313333c5cd';
+$host    = 'shareddb-g.hosting.stackcp.net';   // ✓ measured on 20i, 3 Oct 2026 (SESSION_20261003_5 §5)
+$db_name = 'gpbmprd-3731529d';
 /* Credentials and the secret key come from ~/.env on gpbm.uk, read through ~/tools/env_loader.php,
    exactly as config_custom.php.local reads /var/www/gpbm/.env on dev (H41, Civ decision 102). Never a
    literal here, and no fallback: a missing value fails loudly. ~/.env is 600: on 20i PHP-FPM runs as
@@ -73,8 +73,8 @@ $timezone    = 'Europe/London';
    is (03-SETUP.md item 26). One line, so h26-config-drift-check.sh reads it. */
 $additional_db_connection_parameters = array(PDO::MYSQL_ATTR_INIT_COMMAND => "SET SESSION sql_mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'");
 $languages_ar = array ('english');
-$files_url   = 'https://files.gpbm.uk/';    // Q4 of SESSION_20261003_5, Alan 3 Oct 2026
-$images_url  = 'https://images.gpbm.uk/';   // Q4 of SESSION_20261003_5, Alan 3 Oct 2026
+$files_url   = 'https://files.gameplan.org.uk/';    // Q4 of SESSION_20261003_5, Alan 3 Oct 2026
+$images_url  = 'https://images.gameplan.org.uk/';   // Q4 of SESSION_20261003_5, Alan 3 Oct 2026
 
 /* ===== Licence ===================================================================== */
 $serial_number = '0DR6URUU';   // 13.5-Levanto Platinum. Alan, 18-Aug-2026: one code covers up
