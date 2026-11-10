@@ -1,7 +1,10 @@
 <?php
 // don't delete this line, this must be the first line of your code
 if(!defined('custom_page_from_inclusion')) { die(); }
-// team_plays.php · rev 003 · 10 Nov 2026 · role: page (administrator only, on both hosts; read-only) · authority: derived
+// team_plays.php · rev 004 · 10 Nov 2026 · role: page (administrator only, on both hosts; read-only) · authority: derived
+// rev 004: a line under the heading says when the seasons listed are fewer than the seasons held (Alan, on V14a of 10 Nov 2026
+//          session1: "another line: Filtered to current and previous season"): the page opened on two seasons of eight and
+//          nothing but the two selectors said so.
 // rev 003: Alan's NZ4 to NZ6 of 10 Nov 2026 session1. "Every coach" defaults to EVERY season with plays (it showed the latest two,
 //          the same two as the current coach, so the years did not move when it was chosen); a named coach still defaults to
 //          the latest two seasons of his tenure. The "Hide special teams" label is white: DaDaBIK styles a label dark, which
@@ -140,6 +143,15 @@ if (!$_tp_years) {
 if ($_tp_from > $_tp_to) {
     echo "<p>The first season must not be after the last: " . (int)$_tp_from . " is after " . (int)$_tp_to . ".</p></div>";
     return;
+}
+
+// rev 004: say so when fewer seasons are listed than are held for this team, side and coach. The default for the current
+// coach is "the current and previous seasons" in Alan's words; any other narrowed span is named by its years.
+if ($_tp_from > $_tp_years[0] || $_tp_to < $_tp_last) {
+    $_tp_is_default = !isset($_GET['from']) && !isset($_GET['to']) && $_tp_coach === $_tp_default_coach && $_tp_coach !== 'all';
+    $_tp_span = ($_tp_from === $_tp_to) ? "season " . (int)$_tp_from : "seasons " . (int)$_tp_from . " to " . (int)$_tp_to;
+    echo "<p>" . ($_tp_is_default ? "Filtered to the current and previous seasons (" . (int)$_tp_from . " to " . (int)$_tp_to . ")." : "Filtered to $_tp_span.")
+       . " Plays are held for " . (int)$_tp_years[0] . " to " . (int)$_tp_last . ": change Season above to list more.</p>";
 }
 
 // -------------------- the listing --------------------
