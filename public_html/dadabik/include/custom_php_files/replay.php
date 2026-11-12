@@ -29,6 +29,9 @@ include_once(__DIR__ . '/gp_venue.php');
 // browser (localStorage 'gpbmReplayDelay'); nothing about it is stored on the server.
 // H95 (12-Nov-2026, replay r003): 2 seconds added to the waits offered (Alan, with his V3 report: "please add
 // 2 seconds as an option"). The list is now 1, 2, 3, 5, 10, 20, 30; the default stays 3.
+// H96 (12-Nov-2026, replay r004): a goal-to-go down shows "1st & Goal", not "1st & ?" (Alan, item 0: "? should be
+// goal"). plays.yards_to_go is NULL only where the play-by-play reads "<n>th & Goal" (extract_playbyplay.php's
+// parse_down_distance(); a down without a parsed distance is not stored any other way), so NULL with a down is Goal.
 
 // ------------------------------------------------------------------
 // Live Replay -- standalone, spoiler-free entry point for a single game's
@@ -212,7 +215,7 @@ function format_down_distance_plain($down, $yards_to_go) {
     if ($down === null) {
         return '-';
     }
-    $dist_text = ($yards_to_go !== null) ? (int)$yards_to_go : '?';
+    $dist_text = ($yards_to_go !== null) ? (int)$yards_to_go : 'Goal';
     return ordinal_suffix($down) . ' & ' . $dist_text;
 }
 

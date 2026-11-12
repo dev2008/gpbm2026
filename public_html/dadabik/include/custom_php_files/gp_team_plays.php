@@ -1,5 +1,9 @@
 <?php
-// gp_team_plays.php · rev 002 · 10 Nov 2026 · role: helper (functions only, included by team_plays.php and the H92 CLI) · authority: derived
+// gp_team_plays.php · rev 003 · 12 Nov 2026 · role: helper (functions only, included by team_plays.php and the H92 CLI) · authority: derived
+// rev 003: H96 (Alan, Q1 of 12 Nov 2026 session2: "show Goal"). A play with a down and no distance lists its distance as
+//          "Goal", on the page and in the download: plays.yards_to_go is NULL only where the report read "<n>th & Goal"
+//          (extract_playbyplay.php, parse_down_distance()). Legacy rows carry a number there and are listed as stored. The
+//          H92 CLI's proof against the exports of 10 Nov 2026 was made before this and would now differ on those rows.
 // rev 002: gp_tp_rows() takes $newest_first (Alan, NZ2 and NZ3 of 10 Nov 2026 session1: the most recent game first; the plays of
 //          a game stay in the order they were run). The default is the old order, so the CLI's proof against the exports stands.
 // rev 001: first issue. Item H92 (Alan, item 0 and Q2, Q3 of 10 Nov 2026 session1; GameplanPBM/20261110/session1/SESSION_20261110_1.md).
@@ -141,7 +145,7 @@ function gp_tp_rows($conn, $side, $league, $franchise_id, $lo, $hi, $season_from
             'clock'         => ($t === null) ? '' : sprintf('%d:%02d', intdiv((int)$t, 60), (int)$t % 60),
             'field_pos'     => $nv($r['field_position']),
             'down'          => $has_down ? (string)(int)$r['down'] : '',
-            'distance'      => $has_down ? $nv($r['distance']) : '',
+            'distance'      => $has_down ? (($r['distance'] === null) ? 'Goal' : (string)$r['distance']) : '',
             'formation'     => $nv($r['formation_code']),
             'off_call'      => $nv($r['offense_call_code']),
             'def_call'      => $nv($r['defense_call_code']),
