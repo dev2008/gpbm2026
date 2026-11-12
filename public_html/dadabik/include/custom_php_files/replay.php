@@ -20,6 +20,13 @@ include_once(__DIR__ . '/gp_venue.php');
 // changed it (plays.score_after is set only on a scoring play, measured: no set value ever equals
 // the previous one); (4) the buttons sit ABOVE the result box so they never move; (5) no "Play n of
 // N": the total gives away how long the game runs. game.php's Playback mode is untouched (Q2).
+// H95 (12-Nov-2026, replay r002): Alan, "The live replay needs to lose the reveal result button and
+// 'Think about what happens next, then reveal the result.' - next should show the play call details
+// then a configurable number of seconds later show the result; default 3 seconds; options 1 - 3 - 5
+// - 10 - 20 - 30". The Reveal Result button and the prompt text are gone. A play is shown with its
+// call, and its result follows by itself after the chosen wait. The wait is chosen from a list
+// beside the buttons (REPLAY_DELAY_OPTIONS, REPLAY_DELAY_DEFAULT below) and remembered in the
+// browser (localStorage 'gpbmReplayDelay'); nothing about it is stored on the server.
 
 // ------------------------------------------------------------------
 // Live Replay -- standalone, spoiler-free entry point for a single game's
@@ -75,6 +82,11 @@ if (!($current_user_is_administrator == 1)) {
 // game.php's registered id_static_page (confirmed value, see conversation) -- used only for
 // the spoiler-labeled link at the very bottom of this page.
 define('GAME_PAGE_STATIC_ID', 10);
+
+// H95: the waits offered between a play's call and its result, in seconds, and the one used until
+// the viewer picks another. The default must be one of the options.
+define('REPLAY_DELAY_OPTIONS', [1, 3, 5, 10, 20, 30]);
+define('REPLAY_DELAY_DEFAULT', 3);
 
 function build_game_link($game_id) {
     return htmlspecialchars(
@@ -260,8 +272,18 @@ echo "<table class='w3-table w3-bordered w3-white w3-text-black' style='margin-b
 // H56 (4): the buttons ABOVE the result box, so they stay in one place whatever the box holds.
 echo "<div style='margin-bottom:14px'>"
    . "<button type='button' class='w3-button w3-theme-d1' id='pbp-prev-btn' onclick='pbpPrev()'>&larr; Previous</button> "
-   . "<button type='button' class='w3-button w3-theme' id='pbp-main-btn' onclick='pbpMainAction()'>Reveal Result</button>"
-   . "</div>";
+   . "<button type='button' class='w3-button w3-theme' id='pbp-main-btn' onclick='pbpMainAction()'>Next Play &rarr;</button>";
+// H95: the wait before a play's result shows. The list is REPLAY_DELAY_OPTIONS; the script below
+// reads the default from data-default and the viewer's last choice from the browser.
+echo " <label for='pbp-delay' style='margin-left:12px'>Result after</label> "
+   . "<select id='pbp-delay' data-default='" . (int)REPLAY_DELAY_DEFAULT . "' onchange='pbpDelayChanged()' "
+   . "style='padding:6px 4px'>";
+foreach (REPLAY_DELAY_OPTIONS as $_cp_delay) {
+    echo "<option value='" . (int)$_cp_delay . "'"
+       . ((int)$_cp_delay === (int)REPLAY_DELAY_DEFAULT ? " selected" : "") . ">" . (int)$_cp_delay . "</option>";
+}
+echo "</select> seconds";
+echo "</div>";
 echo "<div id='pbp-result-box' class='w3-white w3-text-black' "
    . "style='min-height:70px;padding:10px;border:1px dashed #999;margin-bottom:14px'></div>";
 echo "</div>";
@@ -276,8 +298,42 @@ echo <<<'JS'
     var pbpData = JSON.parse(document.getElementById('pbp-data').textContent);
     var pbpIndex = 0;
     var pbpRevealed = false;
+    // H95: the pending "show the result" timer, and when the play on screen was shown.
+    var pbpTimer = null;
+    var pbpShownAt = 0;
+    var PBP_DELAY_KEY = 'gpbmReplayDelay';
 
     function pbpEl(id) { return document.getElementById(id); }
+
+    // H95: the wait in milliseconds, from the list. Anything that is not one of the list's own
+    // values (a stale or edited stored value) falls back to the page's default.
+    function pbpDelayMs() {
+        var sel = pbpEl('pbp-delay');
+        var n = parseInt(sel.value, 10);
+        if (!(n > 0)) { n = parseInt(sel.getAttribute('data-default'), 10); }
+        return n * 1000;
+    }
+
+    // H95: the viewer's last choice, if this browser kept one and it is still on the list.
+    function pbpLoadDelay() {
+        var sel = pbpEl('pbp-delay');
+        var stored = null;
+        try { stored = window.localStorage.getItem(PBP_DELAY_KEY); } catch (e) { stored = null; }
+        if (stored === null) { return; }
+        for (var i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].value === stored) { sel.value = stored; return; }
+        }
+    }
+
+    function pbpCancelTimer() {
+        if (pbpTimer !== null) { window.clearTimeout(pbpTimer); pbpTimer = null; }
+    }
+
+    // H95: the result follows the call by itself. `wait` is what is left of the chosen delay.
+    function pbpStartTimer(wait) {
+        pbpCancelTimer();
+        pbpTimer = window.setTimeout(function () { pbpTimer = null; pbpRevealPlay(); }, Math.max(0, wait));
+    }
 
     function pbpRenderPlay() {
         var p = pbpData[pbpIndex];
@@ -289,15 +345,18 @@ echo <<<'JS'
         pbpEl('pbp-downdist').textContent = p.down_dist;
         pbpEl('pbp-call').textContent = p.call;
 
-        var box = pbpEl('pbp-result-box');
-        box.textContent = '';
-        var em = document.createElement('em');
-        em.textContent = 'Think about what happens next, then reveal the result.';
-        box.appendChild(em);
+        // H95: the box is empty while the result is awaited (no prompt text, no Reveal button).
+        pbpEl('pbp-result-box').textContent = '';
 
-        pbpEl('pbp-main-btn').textContent = 'Reveal Result';
+        // H95: Next waits for the result, so a play is never left behind unseen. The label stays
+        // "Next Play" on every play until its result is in: "End of Game" before the last result
+        // would give the ending away.
+        pbpEl('pbp-main-btn').textContent = 'Next Play →';
+        pbpEl('pbp-main-btn').disabled = true;
         pbpEl('pbp-prev-btn').disabled = (pbpIndex === 0);
         pbpRevealed = false;
+        pbpShownAt = Date.now();
+        pbpStartTimer(pbpDelayMs());
     }
 
     function pbpRevealPlay() {
@@ -337,21 +396,21 @@ echo <<<'JS'
         }
 
         pbpEl('pbp-score').textContent = p.score_after;
-        pbpEl('pbp-main-btn').textContent = (pbpIndex < pbpData.length - 1) ? 'Next Play \u2192' : 'End of Game';
+        var isLast = (pbpIndex >= pbpData.length - 1);
+        pbpEl('pbp-main-btn').textContent = isLast ? 'End of Game' : 'Next Play →';
+        pbpEl('pbp-main-btn').disabled = isLast;
         pbpRevealed = true;
     }
 
+    // H95: the button is Next only. It is disabled until the play on screen has its result.
     window.pbpMainAction = function () {
-        if (!pbpRevealed) {
-            pbpRevealPlay();
-        } else if (pbpIndex < pbpData.length - 1) {
+        if (pbpRevealed && pbpIndex < pbpData.length - 1) {
             pbpIndex++;
             pbpRenderPlay();
         }
     };
 
-    // Going back always shows the target play hidden again, even if it was revealed before --
-    // same deliberately-simple choice as game.php's Playback mode, see there for the reasoning.
+    // Going back shows the target play's call again and its result after the same wait.
     window.pbpPrev = function () {
         if (pbpIndex > 0) {
             pbpIndex--;
@@ -359,6 +418,16 @@ echo <<<'JS'
         }
     };
 
+    // H95: a new wait is kept for the next visit and applies at once to the play on screen,
+    // counted from when that play was shown (a wait already passed shows the result now).
+    window.pbpDelayChanged = function () {
+        try { window.localStorage.setItem(PBP_DELAY_KEY, pbpEl('pbp-delay').value); } catch (e) {}
+        if (!pbpRevealed) {
+            pbpStartTimer(pbpDelayMs() - (Date.now() - pbpShownAt));
+        }
+    };
+
+    pbpLoadDelay();
     // No mode choice on this page -- straight into the first play on load.
     pbpRenderPlay();
 })();
