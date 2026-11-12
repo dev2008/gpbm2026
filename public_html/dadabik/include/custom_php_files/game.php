@@ -15,6 +15,8 @@ if(!defined('custom_page_from_inclusion')) { die(); }
 // (REPLAY_DELAY_OPTIONS, REPLAY_DELAY_DEFAULT below; kept in the browser as 'gpbmReplayDelay',
 // the same key replay.php uses, so one choice serves both pages). Back stops a pending result.
 // The Table view is unchanged.
+// H95 (12-Nov-2026, game r003): 2 seconds added to the waits offered (Alan, with his V3 report: "please add
+// 2 seconds as an option"). The list is now 1, 2, 3, 5, 10, 20, 30; the default stays 3.
 // A5 (17-Aug-2026): week-grain identity resolution + the internal display toggles. Hard
 // dependency -- see gp_identity.php's header for why it is not
 // guarded and why the resolution does not go through franchises.label any more.
@@ -26,7 +28,7 @@ include_once(__DIR__ . '/gp_venue.php');
 
 // H95: the waits offered between a play's call and its result, in seconds, and the one used until
 // the viewer picks another. The default must be one of the options. replay.php holds the same two.
-define('REPLAY_DELAY_OPTIONS', [1, 3, 5, 10, 20, 30]);
+define('REPLAY_DELAY_OPTIONS', [1, 2, 3, 5, 10, 20, 30]);
 define('REPLAY_DELAY_DEFAULT', 3);
 
 // ------------------------------------------------------------------
